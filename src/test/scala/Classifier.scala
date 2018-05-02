@@ -1,12 +1,12 @@
 package edu.vcu.sleeman
 
 import org.apache.spark.ml.{Pipeline, PipelineModel}
-import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
+import org.apache.spark.sql.types.{DoubleType, IntegerType, StructField, StructType}
 
 import scala.collection.mutable.ArrayBuffer
-import org.apache.spark.ml.classification.{DecisionTreeClassifier, KNNClassifier, RandomForestClassificationModel, RandomForestClassifier,LinearSVC}
+import org.apache.spark.ml.classification._
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
-import org.apache.spark.ml.feature.{VectorAssembler, VectorIndexer}
+import org.apache.spark.ml.feature._
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.tuning.{ParamGridBuilder, TrainValidationSplit}
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
@@ -17,8 +17,8 @@ import org.apache.spark.sql.DataFrame
 
 import scala.util.Random
 import org.apache.log4j._
-import org.apache.spark.ml.feature.{IndexToString, StringIndexer}
 import org.apache.spark.mllib.util.MLUtils
+
 
 //import edu.vcu.sleeman.MinorityClass._
 
@@ -446,26 +446,42 @@ object Classifier {
     val knn = new KNNClassifier()
       .setTopTreeSize(df.count().toInt / 500)
       .setFeaturesCol("features")
-      .setPredictionCol("prediction")
-      .setK(5)
+      .setPredictionCol("predictions")
+      .setK(1)
 
+
+    // convert "features" from mllib.linalg.Vector to ml.linalg.Vector
     val dataset =  MLUtils.convertVectorColumnsToML(df)
       .cache()
     dataset.count() //force persist
-
     dataset.show()
-    knn.fit(df)
+
+    knn.fit(dataset)
 
 
-    println("K= " + knn.getK)
+    //println("K= " + knn.getK)
   }
 
   def main(args: Array[String]) {
     Logger.getLogger("org").setLevel(Level.ERROR)
 
 
+
+
     val spark = SparkSession.builder().getOrCreate()
     import spark.implicits._
+/*
+    val path =  "/home/ford/working/spark-knn/data/mnist/mnist"
+    val rawDataset = MLUtils.loadLibSVMFile(spark.sparkContext, path)
+      .zipWithIndex()
+      //.filter(_._2 < ns.max)
+      .sortBy(_._2, numPartitions = 8)
+      .keys
+      .toDF()
+
+    rawDataset.show()
+    return
+*/
 
     val input_file = args(0)
     val labelColumnName = args(1)
@@ -504,14 +520,39 @@ object Classifier {
     def func(column: Column) = column.cast(DoubleType)
     val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
 
-    preppedDataUpdated1.show()
-    //preppedDataUpdated.show()
+    //preppedDataUpdated1.show()
+    preppedDataUpdated.show()
 
-    //  runSparKNN(preppedDataUpdated)
+    //val rawDataset = MLUtils.loadLibSVMFile(spark.sparkContext, "/home/ford/working/spark-knn/data/mnist/mnist")
+     // .toDF()
+    //rawDataset.show()
+
+    /*val labeled = preppedDataUpdated1.map(row => LabeledPoint(
+      row.getAs[Int]("label"),
+      row.getAs[org.apache.spark.ml.linalg.Vector]("features")
+    )).toDF
+*/
+    val inputCols = preppedDataUpdated.columns.filter(_ != "label")
+    //inputCols.foreach(println)
+
+    val assembler = new VectorAssembler().
+      setInputCols(Array("Elevation", "Aspect")).
+      setOutputCol("features")
+
+    val columnNames = Seq("label", "features")
+
+    val featureVector: DataFrame = assembler.transform(preppedDataUpdated)
+    val result = featureVector.select(columnNames.head, columnNames.tail: _*)
+    featureVector.show()
+   runSparKNN(result)
+  //  labeled.show()
+    //println(labeled.count())
+
+    //runSparKNN(preppedDataUpdated)
     //getMinorityClassData(preppedDataUpdated)
 
     //getCountsByClass(spark, "_c41", df).show()
-    getCountsByClass(spark, "label", preppedDataUpdated1).show()
+    /*getCountsByClass(spark, "label", preppedDataUpdated1).show()
     val clsArray = preppedDataUpdated.select("label").distinct().collect()
     val methods = Array("None", "oversample", "undersample", "smote")
     //val methods = Array("smote")
@@ -519,7 +560,7 @@ object Classifier {
     for(method<-methods) {
       println("*********** Method " + method + "***********")
       runClassifier(spark, preppedDataUpdated, method)
-    }
+    }*/
   }
 }
   
