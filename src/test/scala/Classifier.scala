@@ -17,7 +17,10 @@ import org.apache.spark.sql.DataFrame
 
 import scala.util.Random
 import org.apache.log4j._
+import org.apache.spark.ml.param.Param
 import org.apache.spark.mllib.util.MLUtils
+
+import scala.collection.mutable
 
 
 //import edu.vcu.sleeman.MinorityClass._
@@ -442,12 +445,54 @@ object Classifier {
     rdd.toDF()
   }
 
+  import edu.vcu.sleeman.MinorityType.getMinorityTypeStatus
   def runSparKNN(df: DataFrame): Unit = {
+    getMinorityTypeStatus(df)
+  }
+
+    def runSparKNN2(df: DataFrame): Unit = {
+
+    val path =  "/home/ford/working/spark-knn/data/mnist/mnist1k"
+
+    val spark = SparkSession.builder().getOrCreate()
+    val sc = spark.sparkContext
+    import spark.implicits._
+
+    //read in raw label and features
+    val rawDataset = MLUtils.loadLibSVMFile(sc, path)
+      .zipWithIndex()
+      .sortBy(_._2, numPartitions = 8)
+      .keys
+      .toDF()
+
+    rawDataset.show()
+
+    // convert "features" from mllib.linalg.Vector to ml.linalg.Vector
+    val dataset =  MLUtils.convertVectorColumnsToML(rawDataset)
+      .cache()
+    dataset.count() //force persist
+
     val knn = new KNNClassifier()
-      .setTopTreeSize(df.count().toInt / 500)
+      .setTopTreeSize(8 * 10)
+      .setFeaturesCol("features")
+      .setPredictionCol("prediction")
+      .setK(3)
+
+    val knnModel = knn.fit(dataset)
+
+
+    println(knnModel.getDistanceCol)
+    val results = knnModel.transform(dataset)
+
+    results.printSchema()
+
+    results.show()
+
+    /*val knn = new KNNClassifier().setTopTreeSize(df.count().toInt / 500)
       .setFeaturesCol("features")
       .setPredictionCol("predictions")
-      .setK(1)
+
+      .setK(5)
 
 
     // convert "features" from mllib.linalg.Vector to ml.linalg.Vector
@@ -456,9 +501,12 @@ object Classifier {
     dataset.count() //force persist
     dataset.show()
 
-    knn.fit(dataset)
+    val knnModel: KNNClassificationModel = knn.fit(dataset)
+    println(knnModel.numClasses)
 
-
+    val predicted: DataFrame = knnModel.transform(dataset)
+    println(predicted.schema)
+*/
     //println("K= " + knn.getK)
   }
 
@@ -544,7 +592,7 @@ object Classifier {
     val featureVector: DataFrame = assembler.transform(preppedDataUpdated)
     val result = featureVector.select(columnNames.head, columnNames.tail: _*)
     featureVector.show()
-   runSparKNN(result)
+   runSparKNN(preppedDataUpdated)
   //  labeled.show()
     //println(labeled.count())
 

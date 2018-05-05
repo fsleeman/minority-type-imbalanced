@@ -27,26 +27,28 @@ object MinorityType {
   type DistanceResult = (Float, Int)
   type DistanceArray = (Long, Array[DistanceResult])
   type MinorityResult = (Int, (Array[Float], String))
+  type MinorityResultIndexed = (Long, Int, (Array[Float], String))
+
   type MinorityResult2 = (Int, (Array[Float], Int))
   type MinorityGroupTypeResult = (Int, String)
 
-  // Read input csv file and translate to (case, [data points])
-  def parseLine(line:String)= {
-    val fields = line.split(",")
-    val reversed = fields.reverse
-    (reversed.head.toInt, reversed.takeRight(10).map(x=>x.toFloat))
+
+  def getMinorityReport(data:(Int, Iterable[String])): MinorityGroupTypeResult ={
+    val currentClass = data._1
+    val values = data._2.toArray
+    val safe = values.filter(x=>(x=="safe"))
+    val borderline = values.filter(x=>(x=="borderline"))
+    val rare = values.filter(x=>(x=="rare"))
+    val outlier = values.filter(x=>(x=="outlier"))
+
+    val safeCount = safe.length
+    val borderlineCount = borderline.length
+    val rareCount = rare.length
+    val outlierCount = outlier.length
+    val str = "safe: "+  safeCount  + " borderline: " + borderlineCount  + " rare: " + rareCount + " outlier: " +  outlierCount
+    (data._1, str)
   }
 
-  def getDistanceValue(train:Element, test:Element) : DistanceResult={
-    if(train._1 == test._1) {
-      return (Float.MaxValue, train._2._1)
-    }
-    else {
-      var zipped = test._2._2.zip(train._2._2)
-      var result = zipped.map({case(x,y)=>(x-y)*(x-y)})
-      return (sqrt(result.sum).toFloat, train._2._1)
-    }
-  }
 
   // Map number of nearest same-class neighbors to minority class label
   def getMinorityClassLabel(kCount:Int):String ={
@@ -64,8 +66,100 @@ object MinorityType {
     }
   }
 
+  def getDistanceValue(train:Element, test:Element) : DistanceResult={
+    if(train._1 == test._1) {
+      return (Float.MaxValue, train._2._1)
+    }
+    else {
+      var zipped = test._2._2.zip(train._2._2)
+      var result = zipped.map({case(x,y)=>(x-y)*(x-y)})
+      return (sqrt(result.sum).toFloat, train._2._1)
+    }
+  }
+
+  def getDistances(current:Element, train:Array[Element]): MinorityResultIndexed ={
+    val result = train.map(x => getDistanceValue(x, current)).sortBy(x=>x._1).take(5)
+    val cls = current._2._1
+    val sum = result.filter(x=>(x._2==cls)).length
+    return (current._1, current._2._1, (current._2._2, getMinorityClassLabel(sum)))
+  }
+
+  def getMinorityDistance(sample: Element, data:Array[Element]): Float ={
+    val currentClass = sample._2._1
+    val samples = data.filter(x=>(x._2._1==currentClass && x._1 != sample._1))
+    val result = samples.map(x => getDistanceValue(x, sample)).sortBy(x=>x._1).take(5)
+    val sum = result.filter(x=>(x._2==currentClass)).length
+    return result.head._1
+  }
+
+
+  def getMinorityTypeStatus(df: DataFrame) {
+
+    val train_index = df.rdd.zipWithIndex().map({case(x,y)=>(y,x)}).cache()
+
+    val train_data = train_index.map({r =>
+      val array = r._2.toSeq.toArray.reverse
+      val cls = array.head.toString().toDouble.toInt
+      val rowMapped = array.tail.map(_.toString().toFloat)
+      (r._1, (cls, rowMapped))
+    })
+    //train_index.take(10).foreach(println)
+    //println()
+    train_data.take(10).foreach(println)
+
+    val train_data_collected: Array[(Long, (Int, Array[Float]))] = train_data.collect()
+
+    //val countOfClasses = train_data.map((_, 1L)).reduceByKey(_ + _).map{ case ((k, v), cnt) => (k, (v, cnt)) }.groupByKey
+    //val countOfClassesTest = train_data.map((_, 1L)).reduceByKey(_ + _).map{ case ((k, v), cnt) => (k, (v, cnt)) }.groupByKey
+
+    //val maxCount = countOfClasses.map(x=>x._2.count(x=>true)).collect().max
+    //val listOfClasses = countOfClasses.map(x=>x._1).collect().toSeq
+
+    //val countResults = countOfClasses.map(x=>(x._1, x._2.count(x=>true)))
+
+    //countResults.sortBy(x => x._1, true).collect().foreach(println);
+    val t0 = System.nanoTime()
+
+    // val train_data_collected = train_index.collect()///trainIndexBroadcast.value;  //train_index.collect()
+
+    //val tX = System.nanoTime()
+    //println("Time 1: " + (tX - t0)/1.0e9 + "s")
+    //FIXME - are the index values needed or will the order always be in the right direction?
+    val minorityData = train_data.map(x=>getDistances(x, train_data_collected)).cache()  //FIXME try not caching this?
+    //val minorityDataGrouped = minorityData.map(x=>(x._1, x._2._2)).groupByKey().cache()
+    //println("minorityDataSize:" +  minorityDataGrouped.count())
+    //println("**** Minority Class Counts ****")
+
+    //val results: RDD[(Int, String)] = minorityDataGrouped.map(x=>getMinorityReport(x)).cache()
+    println()
+    minorityData.take(10).foreach(println)
+
+    val t1 = System.nanoTime()
+    //results.sortBy(x => x._1, true).collect().foreach(println);
+    println("Elapsed time: " + (t1 - t0)/1.0e9 + "s")
+
+    //FIXME -return indicies per class/minority type
+
+
+    val sqlContext = df.sqlContext
+    import sqlContext.implicits._
+    minorityData.toDF().show()
+    //val grouped = minorityData.map(x=>(x._2, (x._1, x._3))).groupByKey()
+    //grouped.toDF().show()
+
+
+
+  }
+
+  // Read input csv file and translate to (case, [data points])
+  /*def parseLine(line:String)= {
+    val fields = line.split(",")
+    val reversed = fields.reverse
+    (reversed.head.toInt, reversed.takeRight(10).map(x=>x.toFloat))
+  }*/
+
   //def getNewElement(cls:Float, data:RDD[Array[Float]]): ElementNI={
-  def getNewElement(data:Array[MinoriyElementNI]): ElementNI={
+/* def getNewElement(data:Array[MinoriyElementNI]): ElementNI={
     val dataValues = data.map(x=>x._2)
     val elementsSampled = dataValues.transpose.map(x=>x.sum/5)
     return (data(0)._1, elementsSampled.toArray)
@@ -76,14 +170,9 @@ object MinorityType {
     val elementsSampled = dataSeq.map(x=>x.toSeq).transpose.map(x=>x.sum/5)
     return (cls, elementsSampled.toArray)
   }
+*/
 
-  def getDistances(current:Element, train:Array[Element]): MinorityResult ={
-    val result = train.map(x => getDistanceValue(x, current)).sortBy(x=>x._1).take(5)
-    val cls = current._2._1
-    val sum = result.filter(x=>(x._2==cls)).length
-    return (current._2._1, (current._2._2, getMinorityClassLabel(sum)))
-  }
-
+/*
   def getMinorityLabels(sample: Element, data:Array[Element]): MinorityResult ={
     val currentClass = sample._2._1
     val samples = data.filter(x=>(x._2._1==currentClass))/// && x._1 != sample._1))
@@ -91,16 +180,11 @@ object MinorityType {
     val sum = result.filter(x=>(x._2==currentClass)).length
     return (sample._2._1, (sample._2._2, getMinorityClassLabel(sum)))
   }
+*/
 
 
-  def getMinorityDistance(sample: Element, data:Array[Element]): Float ={
-    val currentClass = sample._2._1
-    val samples = data.filter(x=>(x._2._1==currentClass && x._1 != sample._1))
-    val result = samples.map(x => getDistanceValue(x, sample)).sortBy(x=>x._1).take(5)
-    val sum = result.filter(x=>(x._2==currentClass)).length
-    return result.head._1
-  }
 
+  /*
   def getIndicies(maxIndex:Int):Array[Int] ={
     val r = scala.util.Random
     val indices = (1 to (maxIndex)).map(x=>r.nextInt(maxIndex)).toArray
@@ -166,24 +250,10 @@ object MinorityType {
     val bar = samples.toArray
 
     (currentClass, foo ++ bar)
-  }
+  }*/
 
-  def getMinorityReport(data:(Int, Iterable[String])): MinorityGroupTypeResult ={
-    val currentClass = data._1
-    val values = data._2.toArray
-    val safe = values.filter(x=>(x=="safe"))
-    val borderline = values.filter(x=>(x=="borderline"))
-    val rare = values.filter(x=>(x=="rare"))
-    val outlier = values.filter(x=>(x=="outlier"))
 
-    val safeCount = safe.length
-    val borderlineCount = borderline.length
-    val rareCount = rare.length
-    val outlierCount = outlier.length
-    val str = "safe: "+  safeCount  + " borderline: " + borderlineCount  + " rare: " + rareCount + " outlier: " +  outlierCount
-    (data._1, str)
-  }
-
+/*
   def getMinorityClassData(df: DataFrame) {
     df.show()
     val t0 = System.nanoTime()
@@ -212,52 +282,10 @@ object MinorityType {
     results.sortBy(x => x._1, true).collect().foreach(println)
     println("Elapsed time: " + (t1 - t0)/1.0e9 + "s")
   }
-
-  def getMinorityTypeStatus(df: DataFrame) {
-
-    val train_index = df.rdd.zipWithIndex().map({case(x,y)=>(y,x)}).cache()
-
-    val train_data = train_index.map({r =>
-      val array = r._2.toSeq.toArray.reverse
-      val cls = array.head.toString().toDouble.toInt
-      val rowMapped = array.tail.map(_.toString().toFloat)
-      (r._1, (cls, rowMapped))
-    })
-
-    val train_data_collected: Array[(Long, (Int, Array[Float]))] = train_data.collect()
-
-    val countOfClasses = train_data.map((_, 1L)).reduceByKey(_ + _).map{ case ((k, v), cnt) => (k, (v, cnt)) }.groupByKey
-    val countOfClassesTest = train_data.map((_, 1L)).reduceByKey(_ + _).map{ case ((k, v), cnt) => (k, (v, cnt)) }.groupByKey
-
-    val maxCount = countOfClasses.map(x=>x._2.count(x=>true)).collect().max
-    val listOfClasses = countOfClasses.map(x=>x._1).collect().toSeq
-
-    val countResults = countOfClasses.map(x=>(x._1, x._2.count(x=>true)))
-
-    countResults.sortBy(x => x._1, true).collect().foreach(println);
-    val t0 = System.nanoTime()
-
-   // val train_data_collected = train_index.collect()///trainIndexBroadcast.value;  //train_index.collect()
-
-    val tX = System.nanoTime()
-    println("Time 1: " + (tX - t0)/1.0e9 + "s")
-
-    val minorityData = train_data.map(x=>getDistances(x, train_data_collected)).cache()  //FIXME try not caching this?
-    val minorityDataGrouped = minorityData.map(x=>(x._1, x._2._2)).groupByKey().cache()
-
-    println("minorityDataSize:" +  minorityDataGrouped.count())
-    println("**** Minority Class Counts ****")
-
-    val results: RDD[(Int, String)] = minorityDataGrouped.map(x=>getMinorityReport(x)).cache()
-    val t1 = System.nanoTime()
-    results.sortBy(x => x._1, true).collect().foreach(println);
-    println("Elapsed time: " + (t1 - t0)/1.0e9 + "s")
-
-    //FIXME -return indicies per class/minority type
-
-  }
+*/
 
 
+/*
   def main(args: Array[String]) {
     Logger.getLogger("org").setLevel(Level.ERROR)
     val train_file = args(0)
@@ -352,6 +380,6 @@ object MinorityType {
     //}
 
 
-  }
+  }*/
 }
   
