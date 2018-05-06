@@ -7,16 +7,19 @@ import scala.util.Random
 import org.apache.spark.SparkContext._
 import org.apache.log4j._
 import org.apache.spark.rdd._
+
 import scala.math._
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.ArrayBuffer
-
 import org.apache.spark.mllib.linalg.Vectors
 import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.util.MLUtils
-import org.apache.spark.mllib.classification.{LogisticRegressionWithLBFGS}
+import org.apache.spark.mllib.classification.LogisticRegressionWithLBFGS
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 import org.apache.spark.sql._
+
+import scala.reflect.ClassTag
+
 
 
 object MinorityType {
@@ -27,13 +30,13 @@ object MinorityType {
   type DistanceResult = (Float, Int)
   type DistanceArray = (Long, Array[DistanceResult])
   type MinorityResult = (Int, (Array[Float], String))
-  type MinorityResultIndexed = (Long, Int, (Array[Float], String))
+  type MinorityResultIndexed = (Long, Int, String, Array[Float])
 
   type MinorityResult2 = (Int, (Array[Float], Int))
   type MinorityGroupTypeResult = (Int, String)
 
 
-  def getMinorityReport(data:(Int, Iterable[String])): MinorityGroupTypeResult ={
+  /*def getMinorityReport(data:(Int, Iterable[String])): MinorityGroupTypeResult ={
     val currentClass = data._1
     val values = data._2.toArray
     val safe = values.filter(x=>(x=="safe"))
@@ -47,7 +50,22 @@ object MinorityType {
     val outlierCount = outlier.length
     val str = "safe: "+  safeCount  + " borderline: " + borderlineCount  + " rare: " + rareCount + " outlier: " +  outlierCount
     (data._1, str)
+  }*/
+
+  def getMinorityReport(df: DataFrame)={//: MinorityGroupTypeResult = {
+    // val currentClass = data._1
+    //val values = data._2.toArray
+
+    val safeCount = df.filter(df("_3")==="safe").count()
+    val borderlineCount = df.filter(df("_3")==="borderline").count()
+    val rareCount = df.filter(df("_3")==="rare").count()
+    val outlierCount = df.filter(df("_3")==="outlier").count()
+
+    val str = "safe: "+  safeCount  + " borderline: " + borderlineCount  + " rare: " + rareCount + " outlier: " +  outlierCount
+    println(df.take(1)(0)(1) + ":" + str)
+   // (df.take(1)(0)(1).toString().toInt, str)
   }
+
 
 
   // Map number of nearest same-class neighbors to minority class label
@@ -81,7 +99,7 @@ object MinorityType {
     val result = train.map(x => getDistanceValue(x, current)).sortBy(x=>x._1).take(5)
     val cls = current._2._1
     val sum = result.filter(x=>(x._2==cls)).length
-    return (current._1, current._2._1, (current._2._2, getMinorityClassLabel(sum)))
+    return (current._1, current._2._1, getMinorityClassLabel(sum), current._2._2)
   }
 
   def getMinorityDistance(sample: Element, data:Array[Element]): Float ={
@@ -93,7 +111,7 @@ object MinorityType {
   }
 
 
-  def getMinorityTypeStatus(df: DataFrame) {
+  def getMinorityTypeStatus(df: DataFrame): DataFrame ={
 
     val train_index = df.rdd.zipWithIndex().map({case(x,y)=>(y,x)}).cache()
 
@@ -103,52 +121,39 @@ object MinorityType {
       val rowMapped = array.tail.map(_.toString().toFloat)
       (r._1, (cls, rowMapped))
     })
-    //train_index.take(10).foreach(println)
-    //println()
+
     train_data.take(10).foreach(println)
 
     val train_data_collected: Array[(Long, (Int, Array[Float]))] = train_data.collect()
 
-    //val countOfClasses = train_data.map((_, 1L)).reduceByKey(_ + _).map{ case ((k, v), cnt) => (k, (v, cnt)) }.groupByKey
-    //val countOfClassesTest = train_data.map((_, 1L)).reduceByKey(_ + _).map{ case ((k, v), cnt) => (k, (v, cnt)) }.groupByKey
-
-    //val maxCount = countOfClasses.map(x=>x._2.count(x=>true)).collect().max
-    //val listOfClasses = countOfClasses.map(x=>x._1).collect().toSeq
-
-    //val countResults = countOfClasses.map(x=>(x._1, x._2.count(x=>true)))
-
-    //countResults.sortBy(x => x._1, true).collect().foreach(println);
-    val t0 = System.nanoTime()
-
-    // val train_data_collected = train_index.collect()///trainIndexBroadcast.value;  //train_index.collect()
-
-    //val tX = System.nanoTime()
-    //println("Time 1: " + (tX - t0)/1.0e9 + "s")
     //FIXME - are the index values needed or will the order always be in the right direction?
     val minorityData = train_data.map(x=>getDistances(x, train_data_collected)).cache()  //FIXME try not caching this?
-    //val minorityDataGrouped = minorityData.map(x=>(x._1, x._2._2)).groupByKey().cache()
-    //println("minorityDataSize:" +  minorityDataGrouped.count())
-    //println("**** Minority Class Counts ****")
 
-    //val results: RDD[(Int, String)] = minorityDataGrouped.map(x=>getMinorityReport(x)).cache()
     println()
     minorityData.take(10).foreach(println)
 
-    val t1 = System.nanoTime()
-    //results.sortBy(x => x._1, true).collect().foreach(println);
-    println("Elapsed time: " + (t1 - t0)/1.0e9 + "s")
-
     //FIXME -return indicies per class/minority type
-
 
     val sqlContext = df.sqlContext
     import sqlContext.implicits._
-    minorityData.toDF().show()
+    minorityData.take(10).foreach(println)
+
+    val results = minorityData.toDF()
+    //val d = results.select("_2").distinct()
+    //val presentClasses = d.select("_2").rdd.map(r => r(0)).collect()
     //val grouped = minorityData.map(x=>(x._2, (x._1, x._3))).groupByKey()
     //grouped.toDF().show()
 
+    /*for(cls<-presentClasses) {
+      val currentCls = results.filter(x=>x(1)==cls)
+      val types = Array("safe", "borderline")
+      var pickedTypes = currentCls.filter(x=>(types contains(x(2))))
+      pickedTypes.show()
+      println("")
+      getMinorityReport(pickedTypes)
+    }*/
 
-
+    return results
   }
 
   // Read input csv file and translate to (case, [data points])
