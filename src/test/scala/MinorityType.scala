@@ -17,22 +17,23 @@ import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.mllib.classification.LogisticRegressionWithLBFGS
 import org.apache.spark.mllib.evaluation.MulticlassMetrics
 import org.apache.spark.sql._
+import org.apache.spark.sql.expressions.UserDefinedFunction
 
 import scala.reflect.ClassTag
 
 
 
 object MinorityType {
-  type Element = (Long, (Int, Array[Float]))
-  type ElementNI = (Int, Array[Float])
+  type Element = (Long, (Int, Array[Double]))
+  type ElementNI = (Int, Array[Double])
   type MinoriyElement = (Element, String)
-  type MinoriyElementNI = (Int, Array[Float], String)
-  type DistanceResult = (Float, Int)
+  type MinoriyElementNI = (Int, Array[Double], String)
+  type DistanceResult = (Double, Int)
   type DistanceArray = (Long, Array[DistanceResult])
-  type MinorityResult = (Int, (Array[Float], String))
-  type MinorityResultIndexed = (Long, Int, String, Array[Float])
+  type MinorityResult = (Int, (Array[Double], String))
+  type MinorityResultIndexed = (Long, Int, String, Array[Double])
 
-  type MinorityResult2 = (Int, (Array[Float], Int))
+  type MinorityResult2 = (Int, (Array[Double], Int))
   type MinorityGroupTypeResult = (Int, String)
 
 
@@ -86,12 +87,12 @@ object MinorityType {
 
   def getDistanceValue(train:Element, test:Element) : DistanceResult={
     if(train._1 == test._1) {
-      return (Float.MaxValue, train._2._1)
+      return (Double.MaxValue, train._2._1)
     }
     else {
       var zipped = test._2._2.zip(train._2._2)
       var result = zipped.map({case(x,y)=>(x-y)*(x-y)})
-      return (sqrt(result.sum).toFloat, train._2._1)
+      return (sqrt(result.sum).toDouble, train._2._1)
     }
   }
 
@@ -102,7 +103,7 @@ object MinorityType {
     return (current._1, current._2._1, getMinorityClassLabel(sum), current._2._2)
   }
 
-  def getMinorityDistance(sample: Element, data:Array[Element]): Float ={
+  def getMinorityDistance(sample: Element, data:Array[Element]): Double ={
     val currentClass = sample._2._1
     val samples = data.filter(x=>(x._2._1==currentClass && x._1 != sample._1))
     val result = samples.map(x => getDistanceValue(x, sample)).sortBy(x=>x._1).take(5)
@@ -118,27 +119,40 @@ object MinorityType {
     val train_data = train_index.map({r =>
       val array = r._2.toSeq.toArray.reverse
       val cls = array.head.toString().toDouble.toInt
-      val rowMapped = array.tail.map(_.toString().toFloat)
+      val rowMapped = array.tail.map(_.toString().toDouble)
       (r._1, (cls, rowMapped))
     })
 
     train_data.take(10).foreach(println)
 
-    val train_data_collected: Array[(Long, (Int, Array[Float]))] = train_data.collect()
+    val train_data_collected: Array[(Long, (Int, Array[Double]))] = train_data.collect()
 
     //FIXME - are the index values needed or will the order always be in the right direction?
     val minorityData = train_data.map(x=>getDistances(x, train_data_collected)).cache()  //FIXME try not caching this?
 
-    println()
-    minorityData.take(10).foreach(println)
+    //println()
+    //minorityData.take(10).foreach(println)
 
     //FIXME -return indicies per class/minority type
 
     val sqlContext = df.sqlContext
     import sqlContext.implicits._
-    minorityData.take(10).foreach(println)
+    //minorityData.take(10).foreach(println)
 
     val results = minorityData.toDF()
+
+
+    results.printSchema()
+    results.show()
+    results.withColumnRenamed("_1", "index")
+      .withColumnRenamed("_2", "label")
+      .withColumnRenamed("_3", "minority_type")
+      .withColumnRenamed("_4", "features")
+
+
+
+
+
     //val d = results.select("_2").distinct()
     //val presentClasses = d.select("_2").rdd.map(r => r(0)).collect()
     //val grouped = minorityData.map(x=>(x._2, (x._1, x._3))).groupByKey()
@@ -153,7 +167,9 @@ object MinorityType {
       getMinorityReport(pickedTypes)
     }*/
 
-    return results
+    //println("Minority Count size: " + results.count())
+
+    //return results
   }
 
   // Read input csv file and translate to (case, [data points])
