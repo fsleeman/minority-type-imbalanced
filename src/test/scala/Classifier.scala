@@ -24,9 +24,6 @@ import scala.collection.mutable
 import scala.reflect.ClassTag
 
 
-//import edu.vcu.sleeman.MinorityClass._
-
-
 //FIXME - turn classes back to Ints instead of Doubles
 
 object Classifier {
@@ -89,35 +86,15 @@ object Classifier {
     val assembledTrainData = assembler.transform(filteredDF2)
     val assembledTestData = assembler.transform(testData)
 
-    /*val classifier = new DecisionTreeClassifier().setMaxBins(80).
-      setSeed(Random.nextLong()).
-      setLabelCol("label").
-      setFeaturesCol("featureVector").
-      setPredictionCol("prediction")
-*/
     val classifier = new RandomForestClassifier().setNumTrees(10).
       setSeed(Random.nextLong()).
       setLabelCol("label").
       setFeaturesCol("featureVector").
       setPredictionCol("prediction")
 
-
     val model = classifier.fit(assembledTrainData)
     val predictions = model.transform(assembledTestData)
-
-
     val testLabels = testData.select("label").distinct().map(_.getAs[Double]("label")).map(x=>x.toInt).collect().sorted
-    //println("** here **")
-    ///testLabels.foreach(println)
-
-    val evaluator = new MulticlassClassificationEvaluator().setLabelCol("label").setPredictionCol("prediction")
-
-    //val f1 = evaluator.setMetricName("f1").evaluate(predictions)
-    //println(f1)
-
-    val predictionRDD = predictions.
-      select("prediction", "label").
-      as[(Double,Double)].rdd
 
     val confusionMatrix = predictions.
       groupBy("label").
@@ -133,22 +110,17 @@ object Classifier {
     //F-score = 2*TP /(2*TP + FP + FN) 
 
     confusionMatrix.show()
-    //val xxx: Array[Seq[Any]] = confusionMatrix.collect.map(_.toSeq)
 
     val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
     val totalCount = rows.map(x=>x.tail.map(y=>y.toDouble.toInt).sum).sum
 
     val classMaps = testLabels.zipWithIndex.map(x=>(x._2, x._1))
     classMaps.foreach(println)
-    //for(clsIndex<-0 to testLabels.length - 1) {
 
     var sensitiviySum = 0.0
     var sensitiviyCount = 0
     //FIXME - could be made parallel w/udf
     for(clsIndex<-0 to maxLabel) {
-      //print(clsIndex)
-      //println("\t" + (if(testLabels.contains(clsIndex)) 1 else 0))
-
       val colSum = rows.map(x=>x(clsIndex+1).toInt).sum
       val rowValueSum = if(classMaps.map(x=>x._2).contains(clsIndex)) rows.filter(x=>x(0).toDouble.toInt==clsIndex)(0).tail.map(x=>x.toDouble.toInt).sum else 0
       val tp = if(classMaps.map(x=>x._2).contains(clsIndex)) rows.filter(x=>x(0).toDouble.toInt==clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
@@ -158,7 +130,6 @@ object Classifier {
 
       println("tp: " + tp + " fp: " + fp + " tn: " + tn +  " fn: " + fn)
       val sensitivity = tp / (tp + fn).toFloat
-      //println(sensitivity)
       if(tp + fn > 0) {
         sensitiviySum += sensitivity
         sensitiviyCount += 1
@@ -222,7 +193,7 @@ object Classifier {
   def getDistances2(current:Element, train:Array[Element]): NearestClassResultIndex ={
     val result = train.map(x => getDistanceValue(x, current)).sortBy(x=>x._1).take(5)// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     val cls = current._2._1
-    val sum = result.filter(x=>(x._2==cls)).length
+    //val sum = result.filter(x=>(x._2==cls)).length
     return (current._1, current._2._1, result.map(x=>x._2))
   }
 
@@ -231,8 +202,8 @@ object Classifier {
       return (Float.MaxValue, train._2._1)
     }
     else {
-      var zipped = test._2._2.zip(train._2._2)
-      var result = zipped.map({case(x,y)=>(x-y)*(x-y)})
+      val zipped = test._2._2.zip(train._2._2)
+      val result = zipped.map({case(x,y)=>(x-y)*(x-y)})
       return ((result.sum), train._2._1) //removed sqrt
     }
   }
@@ -255,7 +226,6 @@ object Classifier {
 
     println("******************** Class Stats *****************************")
     val countOfClasses = trainRDD.map((_, 1L)).reduceByKey(_ + _).map{ case ((k, v), cnt) => (k, (v, cnt)) }.groupByKey
-    //val maxCount = countOfClasses.map(x=>x._2.count(x=>true)).collect().max //For resanmpling
     val countResults = countOfClasses.map(x=>(x._1, x._2.count(x=>true)))
     countResults.sortBy(x => x._1, true).collect().foreach(println);
 
@@ -309,10 +279,8 @@ object Classifier {
     var samples = Array[Row]()    //FIXME - make this more parallel
     //FIXME - some could be zero if split is too small
     for(l<-0 to numLabels) {
-      //println(l)
       val currentCase = df.filter(df("label") === l)
       val samplesToAdd = maxLabelCount - currentCase.count()
-      //println("size requested: " + samplesToAdd)
       if(currentCase.count() == 0) {
         val currentSamples = currentCase.sample(true,(maxLabelCount)).collect()
         println("samples created: " + currentSamples.length)
@@ -415,8 +383,6 @@ object Classifier {
     }
     println(samples(0))
 
-
-
     println("Number of added SMOTE samples: " + samples.length)
     val rdd = spark.sparkContext.makeRDD(samples)
 
@@ -429,10 +395,8 @@ object Classifier {
     println("New total count: " + smoteDF.count())
     println("Final total count: " + finalDF.count())
 
-
     return finalDF
   }
-
 
   def getCountsByClass(spark: SparkSession, label: String, df: DataFrame): DataFrame ={
     import spark.implicits._
@@ -446,15 +410,11 @@ object Classifier {
     rdd.toDF()
   }
 
-
   def minorityTypeResample(spark: SparkSession, df: DataFrame): DataFrame ={
     val numLabels = df.select("label").distinct().count().toInt
 
-
     println("num labels: " + numLabels)
-    //val labelCounts = df.groupBy("_2").agg(count("_2")).take(numLabels)
-    //val maxLabelCount = labelCounts.map(x=>x(1).toString().toInt).reduceLeft(_ max _)
-    val maxLabelCount = 1000
+    val maxLabelCount = 500
 
     var samples = Array[Row]()    //FIXME - make this more parallel
 
@@ -468,7 +428,6 @@ object Classifier {
     for(l<-presentClasses) {
       println(l)
       val currentCase = pickedTypes.filter(pickedTypes("label") === l)
-      //val samplesToAdd = maxLabelCount - currentCase.count()
       if(currentCase.count() == 0) {
         val currentSamples = currentCase.sample(true,(maxLabelCount)).collect()
         println("samples created: " + currentSamples.length)
@@ -484,7 +443,6 @@ object Classifier {
       //FIXME - make this faster
     }
     println("total created samples: " + samples.length)
-   // import spark.implicits._
 
     val foo = spark.sparkContext.parallelize(samples)
     val x = spark.sqlContext.createDataFrame(foo, pickedTypes.schema)
@@ -512,56 +470,11 @@ object Classifier {
     val maxLabels = train.select("label").distinct().count()
     val maxLabel: Int = test.select("label").distinct().collect().map(x=>x.toSeq.last.toString().toDouble.toInt).max
 
-    /* val Array(trainData, testData) = data.randomSplit(Array(0.8, 0.2)) //FIXME - does this need to be stratified?
-     println("train data size: " + trainData.count())
-     // Sample data
-     val filteredDF2 = samplingMethod match {
-       case "undersample" => underSample(spark, trainData)
-       case "oversample" => overSample(spark, trainData)
-       case "smote" => smote(spark, trainData)
-       case _ => trainData
-     }
+    println("test counts")
+    getCountsByClass(spark, "label", train).show()
 
-     println("Filtered Data count: " + filteredDF2.count())
-     filteredDF2.printSchema()
+    train.show()
 
-     println("train data size after: " + filteredDF2.count())
-     println("test data size: " + testData.count())
-
-     println("Sampled Counts")
-     val aggregatedCounts = filteredDF2.groupBy("label").agg(count("label")) //FIXME
-     aggregatedCounts.show()
- */
-
-        println("test counts")
-        getCountsByClass(spark, "label", train).show()
-
-       /* val inputCols = train.columns.filter(_ != "label")
-
-        val assembler = new VectorAssembler().
-          setInputCols(inputCols).
-          setOutputCol("featureVector")
-
-        println("total sampled training size: " + train.count())
-       */
-       train.show()
-
-    //val df = spark.createDataFrame(Seq((1, Array(2,3,4,5,6,7)), (2, Array(20,30,40,50))))
-    //  .toDF("user_id", "is_following")
-
-    /*val convertToVector = udf((array: Seq[Double]) => {
-      Vectors.dense(array.map(_.toDouble).toArray)
-    })
-
-    val df2 = train.withColumn("features", convertToVector($"features"))
-    df2.show()
-    df2.printSchema()
-*/
-
-
-    /*val assembledTrainData = assembler.transform(train)
-        val assembledTestData = assembler.transform(test)
-*/
     val inputCols = test.columns.filter(_ != "label")
 
     val assembler = new VectorAssembler().
@@ -582,18 +495,7 @@ object Classifier {
 
 
         val testLabels = test.select("label").distinct().map(_.getAs[Double]("label")).map(x=>x.toInt).collect().sorted
-        //println("** here **")
-        ///testLabels.foreach(println)
 
-       // val evaluator = new MulticlassClassificationEvaluator().setLabelCol("label").setPredictionCol("prediction")
-
-        //val f1 = evaluator.setMetricName("f1").evaluate(predictions)
-        //println(f1)
-
-        /*val predictionRDD = predictions.
-          select("prediction", "label").
-          as[(Double,Double)].rdd
-    */
         val confusionMatrix = predictions.
           groupBy("label").
           pivot("prediction", (0 to maxLabel)).
@@ -608,22 +510,16 @@ object Classifier {
         //F-score = 2*TP /(2*TP + FP + FN)
 
         confusionMatrix.show()
-        //val xxx: Array[Seq[Any]] = confusionMatrix.collect.map(_.toSeq)
-
         val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
         val totalCount = rows.map(x=>x.tail.map(y=>y.toDouble.toInt).sum).sum
 
         val classMaps = testLabels.zipWithIndex.map(x=>(x._2, x._1))
         classMaps.foreach(println)
-        //for(clsIndex<-0 to testLabels.length - 1) {
 
         var sensitiviySum = 0.0
         var sensitiviyCount = 0
         //FIXME - could be made parallel w/udf
         for(clsIndex<-0 to maxLabel) {
-          //print(clsIndex)
-          //println("\t" + (if(testLabels.contains(clsIndex)) 1 else 0))
-
           val colSum = rows.map(x=>x(clsIndex+1).toInt).sum
           val rowValueSum = if(classMaps.map(x=>x._2).contains(clsIndex)) rows.filter(x=>x(0).toDouble.toInt==clsIndex)(0).tail.map(x=>x.toDouble.toInt).sum else 0
           val tp = if(classMaps.map(x=>x._2).contains(clsIndex)) rows.filter(x=>x(0).toDouble.toInt==clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
@@ -633,7 +529,6 @@ object Classifier {
 
           println("tp: " + tp + " fp: " + fp + " tn: " + tn +  " fn: " + fn)
           val sensitivity = tp / (tp + fn).toFloat
-          //println(sensitivity)
           if(tp + fn > 0) {
             sensitiviySum += sensitivity
             sensitiviyCount += 1
@@ -644,14 +539,8 @@ object Classifier {
         println("AvAcc: " + sensitiviySum/sensitiviyCount)
   }
 
-
-
   import edu.vcu.sleeman.MinorityType.getMinorityTypeStatus
   def runSparKNN(df: DataFrame): Unit = {
-
-
-    //val maxLabel: Int = df.select("label").distinct().collect().map(x=>x.toSeq.last.toString().toDouble.toInt).max
-
     println("Sampled Counts")
     val aggregatedCounts = df.groupBy("label").agg(count("label")) //FIXME
     aggregatedCounts.show()
@@ -662,120 +551,55 @@ object Classifier {
     println("Test Data Count: " + testData.count())
 
     val minorityDF = getMinorityTypeStatus(trainData)
-
-    //val d = minorityDF.select("_2").distinct()
-    //val presentClasses = d.select("_2").rdd.map(r => r(0)).collect()
     minorityDF.show()
-
-
 
     val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF)
     trainDataResampled.show()
     println("trainDataResampled:"  + trainDataResampled.count())
-    //val colNames = Seq("label", "features")
-    //val updated2 = trainDataResampled.withColumnRenamed("_2", "label").withColumnRenamed("_4", "features")
-   // val updated3 = updated2.select(colNames.head, colNames.tail: _*)
-
     runClassifierMinorityType(trainDataResampled, testData)
-
-
-
-    //updated2.show()
-   // return updatedDF
-
-    //runClassifierMinorityType()
-
-    //runClassifier(df.sparkSession, updatedDF, "None")
-
-    /*for(cls<-presentClasses) {
-      val currentCls = minorityDF.filter(x=>x(1)==cls)
-      val types = Array("safe", "borderline")
-      var pickedTypes = currentCls.filter(x=>(types contains(x(2))))
-      overSample(df.sparkSession, pickedTypes)
-      pickedTypes.show()
-
-    }*/
-
   }
 
     def runSparKNN2(df: DataFrame): Unit = {
 
-    val path =  "/home/ford/working/spark-knn/data/mnist/mnist1k"
+      val path =  "/home/ford/working/spark-knn/data/mnist/mnist1k"
 
-    val spark = SparkSession.builder().getOrCreate()
-    val sc = spark.sparkContext
-    import spark.implicits._
+      val spark = SparkSession.builder().getOrCreate()
+      val sc = spark.sparkContext
+      import spark.implicits._
 
-    //read in raw label and features
-    val rawDataset = MLUtils.loadLibSVMFile(sc, path)
-      .zipWithIndex()
-      .sortBy(_._2, numPartitions = 8)
-      .keys
-      .toDF()
+      //read in raw label and features
+      val rawDataset = MLUtils.loadLibSVMFile(sc, path)
+        .zipWithIndex()
+        .sortBy(_._2, numPartitions = 8)
+        .keys
+        .toDF()
 
-    rawDataset.show()
+      rawDataset.show()
 
-    // convert "features" from mllib.linalg.Vector to ml.linalg.Vector
-    val dataset =  MLUtils.convertVectorColumnsToML(rawDataset)
-      .cache()
-    dataset.count() //force persist
+      // convert "features" from mllib.linalg.Vector to ml.linalg.Vector
+      val dataset =  MLUtils.convertVectorColumnsToML(rawDataset)
+        .cache()
+      dataset.count() //force persist
 
-    val knn = new KNNClassifier()
-      .setTopTreeSize(8 * 10)
-      .setFeaturesCol("features")
-      .setPredictionCol("prediction")
-      .setK(3)
+      val knn = new KNNClassifier()
+        .setTopTreeSize(8 * 10)
+        .setFeaturesCol("features")
+        .setPredictionCol("prediction")
+        .setK(3)
 
-    val knnModel = knn.fit(dataset)
+      val knnModel = knn.fit(dataset)
 
+      println(knnModel.getDistanceCol)
+      val results = knnModel.transform(dataset)
 
-    println(knnModel.getDistanceCol)
-    val results = knnModel.transform(dataset)
-
-    results.printSchema()
-
-    results.show()
-
-    /*val knn = new KNNClassifier().setTopTreeSize(df.count().toInt / 500)
-      .setFeaturesCol("features")
-      .setPredictionCol("predictions")
-
-      .setK(5)
-
-
-    // convert "features" from mllib.linalg.Vector to ml.linalg.Vector
-    val dataset =  MLUtils.convertVectorColumnsToML(df)
-      .cache()
-    dataset.count() //force persist
-    dataset.show()
-
-    val knnModel: KNNClassificationModel = knn.fit(dataset)
-    println(knnModel.numClasses)
-
-    val predicted: DataFrame = knnModel.transform(dataset)
-    println(predicted.schema)
-*/
-    //println("K= " + knn.getK)
+      results.printSchema()
+      results.show()
   }
 
   def main(args: Array[String]) {
     Logger.getLogger("org").setLevel(Level.ERROR)
 
     val spark = SparkSession.builder().getOrCreate()
-
-    import spark.implicits._
-/*
-    val path =  "/home/ford/working/spark-knn/data/mnist/mnist"
-    val rawDataset = MLUtils.loadLibSVMFile(spark.sparkContext, path)
-      .zipWithIndex()
-      //.filter(_._2 < ns.max)
-      .sortBy(_._2, numPartitions = 8)
-      .keys
-      .toDF()
-
-    rawDataset.show()
-    return
-*/
 
     val input_file = args(0)
     val labelColumnName = args(1)
@@ -786,81 +610,15 @@ object Classifier {
       option("header",useHeader).
       csv(input_file)
 
-    //df1.show()
 
     val df = df1.repartition(8)
 
-    /*///////
-    /val stringColumns = df.schema.filter(x=>x.dataType.toString().equals("StringType")).map(x=>x.name).toArray
-
-    val preppedData = getIndexedDF(spark, stringColumns, df)//.withColumnRenamed("_c41_idx", "label")
-
-    // labelColumnName
-    val converter = new IndexToString()
-      .setInputCol(labelColumnName)
-      .setOutputCol("originalCategory")
-
-    //////////// 
-    val converted = converter.transform(preppedData)
-    //val foo2 = converted.select(labelColumnName, "originalCategory").distinct()
-    //foo2.sort("_c41_idx").show()
-    ////////////
-
-    //////////// 
-    val preppedDataUpdated1 = preppedData.withColumnRenamed(if(stringColumns.contains(labelColumnName)) labelColumnName + "_idx" else labelColumnName, "label")
-`*/
     val preppedDataUpdated1 = df.withColumnRenamed(labelColumnName, "label")
 
     def func(column: Column) = column.cast(DoubleType)
     val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
-
-    //preppedDataUpdated1.show()
-    //preppedDataUpdated.show()
-
-    //val rawDataset = MLUtils.loadLibSVMFile(spark.sparkContext, "/home/ford/working/spark-knn/data/mnist/mnist")
-     // .toDF()
-    //rawDataset.show()
-
-    /*val labeled = preppedDataUpdated1.map(row => LabeledPoint(
-      row.getAs[Int]("label"),
-      row.getAs[org.apache.spark.ml.linalg.Vector]("features")
-    )).toDF
-*/
-    //val inputCols = preppedDataUpdated.columns.filter(_ != "label")
-    //inputCols.foreach(println)
-
-    //val assembler = new VectorAssembler().
-    //  setInputCols(Array("Elevation", "Aspect")).
-    //  setOutputCol("features")
-
-    //val columnNames = Seq("label", "features")
-
-    //val featureVector: DataFrame = assembler.transform(preppedDataUpdated)
-    //val result = featureVector.select(columnNames.head, columnNames.tail: _*
-
-    //featureVector.show()
    runSparKNN(preppedDataUpdated)
 
-
-    ///runClassifierMinorityType
-
-
-  //  labeled.show()
-    //println(labeled.count())
-
-    //runSparKNN(preppedDataUpdated)
-    //getMinorityClassData(preppedDataUpdated)
-
-    //getCountsByClass(spark, "_c41", df).show()
-    /*getCountsByClass(spark, "label", preppedDataUpdated1).show()
-    val clsArray = preppedDataUpdated.select("label").distinct().collect()
-    val methods = Array("None", "oversample", "undersample", "smote")
-    //val methods = Array("smote")
-
-    for(method<-methods) {
-      println("*********** Method " + method + "***********")
-      runClassifier(spark, preppedDataUpdated, method)
-    }*/
   }
 }
   
