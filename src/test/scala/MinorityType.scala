@@ -98,10 +98,11 @@ object MinorityType {
       val array = r._2.toSeq.toArray.reverse
       val cls = array.head.toString().toDouble.toInt
       val rowMapped = array.tail.map(_.toString().toDouble)
-      (r._1, (cls, rowMapped))
+      //NOTE - This needs to be back in the original order to train/test works correctly
+      (r._1, (cls, rowMapped.reverse))
     })
 
-    train_data.take(10).foreach(println)
+    //train_data.take(10).foreach(println)
 
     val train_data_collected: Array[(Long, (Int, Array[Double]))] = train_data.collect()
 
