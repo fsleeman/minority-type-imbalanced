@@ -53,14 +53,14 @@ object Classifier {
     import spark.implicits._
 
     val maxLabels = data.select("label").distinct().count()
-
+    val numSamples = 1000
     val Array(trainData, testData) = data.randomSplit(Array(0.8, 0.2)) //FIXME - does this need to be stratified?
     println("train data size: " + trainData.count())
     // Sample data
     val filteredDF2 = samplingMethod match {
-      case "undersample" => underSample(spark, trainData)
-      case "oversample" => overSample(spark, trainData)
-      case "smote" => smote(spark, trainData)
+      case "undersample" => underSample(spark, trainData, numSamples)
+      case "oversample" => overSample(spark, trainData, numSamples)
+      case "smote" => smote(spark, trainData, numSamples)
       case _ => trainData
     }
 
@@ -273,72 +273,88 @@ object Classifier {
     converted.select("label", "originalCategory").distinct()
   }
 
-  def overSample(spark: SparkSession, df: DataFrame): DataFrame = {
+  //assume there is only one class present
+  def overSample(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     println("Total Count: " + df.count())
-    val numLabels = df.select("label").distinct().count().toInt
-    println("num labels: " + numLabels)
-    val labelCounts = df.groupBy("label").agg(count("label")).take(numLabels)
-    val maxLabelCount = labelCounts.map(x => x(1).toString().toInt).reduceLeft(_ max _)
+    //val numLabels = df.select("label").distinct().count().toInt
+    //println("num labels: " + numLabels)
+    df.select("label").distinct().show()
+    //val labelCounts = df.groupBy("label").agg(count("label")).take(numLabels)
+    //val maxLabelCount = labelCounts.map(x => x(1).toString().toInt).reduceLeft(_ max _)
+    //println("\tmax count: " + maxLabelCount)
 
     var samples = Array[Row]() //FIXME - make this more parallel
     //FIXME - some could be zero if split is too small
-    for (l <- 0 to numLabels) {
-      val currentCase = df.filter(df("label") === l)
-      val samplesToAdd = maxLabelCount - currentCase.count()
-      if (currentCase.count() == 0) {
-        val currentSamples = currentCase.sample(true, (maxLabelCount)).collect()
+    //for (l <- 0 to numLabels) {
+      //val currentCase = df.filter(df("label") === l)
+      val samplesToAdd = numSamples - df.count()
+      println("\t\tto add: " + samplesToAdd)
+      val currentCount = df.count()
+      if (0 < currentCount && currentCount < numSamples) {
+        val currentSamples = df.sample(true, (numSamples - currentCount) / currentCount.toDouble).collect()
+        println("samples created: " + currentSamples.length)
+        samples = samples ++ currentSamples
+      }
+
+    /*if (df.count() == 0) {
+        val currentSamples = currentCase.sample(true, (numSamples)).collect()
         println("samples created: " + currentSamples.length)
         samples = samples ++ currentSamples
 
       }
       else {
-        val currentSamples = currentCase.sample(true, (maxLabelCount - currentCase.count()) / currentCase.count().toDouble).collect()
+        val currentSamples = currentCase.sample(true, (numSamples - currentCase.count()) / currentCase.count().toDouble).collect()
         println("samples created: " + currentSamples.length)
         samples = samples ++ currentSamples
 
-      }
+      }*/
       //FIXME - make this faster
 
       //FIXME - add original samples
       //samples ++ currentCase.sample(true, (maxLabelCount - currentCase.count()/currentCase.count().toDouble)).collect()
       //val totalResults = df.union(currentCase.sample(true, (maxLabelCount - currentCase.count()/currentCase.count().toDouble)))
       //println(totalResults.count())
-    }
+   //// }
     println("new count: " + samples.length)
 
     val foo = spark.sparkContext.parallelize(samples)
     val x = spark.sqlContext.createDataFrame(foo, df.schema)
-
-    return df.union(x)
+    val xxx = df.union(x).toDF()
+    println("joined count: " + xxx.count())
+    return xxx//df.union(x).toDF()
   }
 
-  def underSample(spark: SparkSession, df: DataFrame): DataFrame = {
+  def underSample(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     println("~~~~~~~~~~~~~~~~~ Under Sample")
-    val counts = getCountsByClass(spark, "label", df).collect().map(x => x(1).toString().toInt).sorted
-    counts.foreach(println)
+    //val counts = getCountsByClass(spark, "label", df).collect().map(x => x(1).toString().toInt).sorted
+    //counts.foreach(println)
 
-    val undersampleCount = counts(counts.length / 2).toInt
+    //val undersampleCount = counts(counts.length / 2).toInt
     var samples = Array[Row]() //FIXME - make this more parallel
 
-    for (cls <- 0 to counts.length) {
-      val currentClass = df.filter(df("label") === cls)
-      val underSampleRatio = undersampleCount / currentClass.count().toDouble
+    //for (cls <- 0 to counts.length) {
+      //val currentClass = df.filter(df("label") === cls)
+      val underSampleRatio = numSamples / df.count().toDouble
       if (underSampleRatio < 1.0) {
-        val currentSamples = currentClass.sample(false, underSampleRatio).collect()
+        val currentSamples = df.sample(false, underSampleRatio).collect()
         samples = samples ++ currentSamples
+        println("new samples: " + samples.length) //FIXME - not working correctly
+        val foo = spark.sparkContext.parallelize(samples)
+        val x = spark.sqlContext.createDataFrame(foo, df.schema)
+        return x
       }
       else {
-        samples = samples ++ currentClass.collect()
+        println("new samples: " + df.count())
+        //samples = samples ++ df.collect()
+        return df
       }
-    }
+    //}
 
-    val foo = spark.sparkContext.parallelize(samples)
-    val x = spark.sqlContext.createDataFrame(foo, df.schema)
-    return x
+
   }
 
 
-  def smote(spark: SparkSession, df: DataFrame): DataFrame = {
+  def smote(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     val numClasses = df.select(df("label")).distinct().count().toInt
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
     println("SMOTE counts")
@@ -346,7 +362,7 @@ object Classifier {
     println(numClasses + " " + aggregatedCounts.count())
     val maxClassCount = aggregatedCounts.select("count(label)").collect().toSeq.map(x => x(0).toString.toInt).max
     println(maxClassCount)
-    val smoteTo = maxClassCount / 2
+    //val smoteTo = maxClassCount / 2
     var samples = ArrayBuffer[Row]() //FIXME - make this more parallel
     for (cls <- 0 to numClasses) {
       print("cls: " + cls + " ")
@@ -358,8 +374,8 @@ object Classifier {
         val currentCount = cnt(0)(1).toString().toInt
 
         val currentClass = df.filter(df("label") === cls)
-        if (currentCount < smoteTo) {
-          val samplesToAdd = smoteTo - currentCount
+        if (currentCount < numSamples) {
+          val samplesToAdd = numSamples - currentCount
           println(cls + " adding " + samplesToAdd)
 
           val currentClassZipped = currentClass.collect().zipWithIndex
@@ -395,7 +411,7 @@ object Classifier {
     val xxx = df.schema.map(x => StructField(x.name, DoubleType, true))
     val smoteDF = spark.createDataFrame(rdd, StructType(xxx))
 
-    val finalDF = underSample(spark, smoteDF)
+    val finalDF = underSample(spark, smoteDF, numSamples) //FITME - check if this is the right number
 
     println("New total count: " + smoteDF.count())
     println("Final total count: " + finalDF.count())
@@ -415,23 +431,73 @@ object Classifier {
     rdd.toDF()
   }
 
-  def minorityTypeResample(spark: SparkSession, df: DataFrame): DataFrame = {
+  def sampleData(spark: SparkSession, df: DataFrame, samplingMethod: String): DataFrame = {
+    val d = df.select("label").distinct()
+    val presentClasses = d.select("label").rdd.map(r => r(0)).collect()
+
+    val overSampleCount = 1000
+    val underSampleCount = 250
+    val smoteSampleCount = 1000
+    var dfs: Array[DataFrame] = Array[DataFrame]()
+    println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    for (l <- presentClasses) {
+      val currentCase = df.filter(df("label") === l).toDF()
+      val filteredDF2 = samplingMethod match {
+        case "undersample" => underSample(spark, currentCase, overSampleCount)
+        case "oversample" => overSample(spark, currentCase, underSampleCount)
+        case "smote" => smote(spark, currentCase, smoteSampleCount)
+        case _ => currentCase
+      }
+      dfs = dfs :+ filteredDF2
+    }
+
+    println(dfs(0).count())
+    println(dfs(1).count())
+    println(dfs(2).count())
+    println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    val all = dfs.reduce(_ union  _)
+
+    println("ALL count: " + all.count())
+    return all
+
+  }
+
+
+  def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String]): DataFrame = {
     val numLabels = df.select("label").distinct().count().toInt
 
     println("num labels: " + numLabels)
     val maxLabelCount = 200
 
+
     var samples = Array[Row]() //FIXME - make this more parallel
 
-    val types =  Array("safe", "borderline")//Array("safe", "borderline")
+    //val types =  Array("safe", "borderline")//Array("safe", "borderline")
     //FIXME - some could be zero if split is too small
-    var pickedTypes = df.filter(x => (types contains (x(2))))
+    var pickedTypes = df.filter(x => (minorityTypes contains (x(2))))
 
     val d = df.select("label").distinct()
     val presentClasses = d.select("label").rdd.map(r => r(0)).collect()
 
-    for (l <- presentClasses) {
-      println(l)
+    //FIXME - avoid passing spark as parameter?
+    val combinedDf = sampleData(spark, pickedTypes, "undersample")
+
+    println("pickedType count: " + pickedTypes.count())
+    println("----------- total sampled count: " + combinedDf.count())
+    /*for (l <- presentClasses) {
+      val samplingMethod = "oversample"
+
+      val currentCase = pickedTypes.filter(pickedTypes("label") === l)
+      val filteredDF2 = samplingMethod match {
+        case "undersample" => underSample(spark, currentCase)
+        case "oversample" => overSample(spark, currentCase)
+        case "smote" => smote(spark, currentCase)
+        case _ => currentCase
+      }
+
+
+
+      /*println(l)
       val currentCase = pickedTypes.filter(pickedTypes("label") === l)
       if (currentCase.count() == 0) {
         val currentSamples = currentCase.sample(true, (maxLabelCount)).collect()
@@ -445,15 +511,18 @@ object Classifier {
           println("samples created: " + currentSamples.length)
           samples = samples ++ currentSamples
         }
-      }
+      }*/
       //FIXME - make this faster
-    }
-    println("total created samples: " + samples.length)
+    }*/
+    /*println("total created samples: " + samples.length)
 
     val foo = spark.sparkContext.parallelize(samples)
     val x = spark.sqlContext.createDataFrame(foo, pickedTypes.schema)
 
     val combinedDf = pickedTypes.union(x).toDF()
+*/
+
+
 
     convertFeaturesToVector(combinedDf)
   }
@@ -563,7 +632,8 @@ object Classifier {
     val minorityDF = getMinorityTypeStatus(trainData)
     minorityDF.show()
 
-    val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF)
+    val minorityTypes = Array("safe", "borderline")
+    val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, minorityTypes)
     trainDataResampled.show()
     //trainDataResampled.take(1).foreach(println)
     println("trainDataResampled:" + trainDataResampled.count())
