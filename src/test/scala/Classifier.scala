@@ -350,11 +350,7 @@ object Classifier {
         //samples = samples ++ df.collect()
         return df
       }
-    //}
-
-
   }
-
 
   def smote(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     val numClasses = df.select(df("label")).distinct().count().toInt
@@ -385,76 +381,54 @@ object Classifier {
         //FIXME - can we dump the index column?
         val values = sampled.map(x=>x(3).asInstanceOf[mutable.WrappedArray[Double]].toArray)
         val ddd = values.transpose.map(_.sum/values.length)
-        val r2 = Row(0, cls, "", ddd)
-        //ddd.foreach(println)
-
-        //val xxxxx = (sampled.toList.map(x => x.toSeq.toList.map(_.toString().toDouble)))
-        //val ddd = xxxxx.toList.transpose.map(_.sum / xxxxx.length)
-        //val r2 = Row.fromSeq(ddd.toSeq)
-
+        val r2 = Row(0, cls, "",  ddd.toSeq)
         smoteSamples += r2
       }
-
-
-      /*val foo: Array[Row] = df.select("label").take(5)
-      foo.map(x=>x.toString().toDouble+1)
-
-      val bar = foo.map(x=>)
-      val x = bar2(3).asInstanceOf[mutable.WrappedArray[Double]].map(x=>x+1000)
-*/
-
-      // currentClassZipped = df.collect().zipWithIndex
-      //currentClassZipped.take(1).foreach(println)
-      /*var smoteSamples = ArrayBuffer[Row]()
-      for (s <- 1 to samplesToAdd.toInt) {
-        def r = scala.util.Random.nextInt(currentClassZipped.length)
-
-        val rand = Array(r, r, r, r, r)
-        val sampled = currentClassZipped.filter(x => (rand.contains(x._2))).map(x => x._1) //FIXME - issues not taking duplicates
-
-        val xxxxx = (sampled.toList.map(x => x.toSeq.toList.map(_.toString().toDouble)))
-        val ddd = xxxxx.toList.transpose.map(_.sum / xxxxx.length)
-        val r2 = Row.fromSeq(ddd.toSeq)
-
-        smoteSamples += r2
-      }*/
-
-      //samples = samples ++ smoteSamples
     }
     else {
-
+        // skip
     }
     samples = samples ++ smoteSamples
-    println("Number of added SMOTE samples: " + samples.length)
-    val rdd = spark.sparkContext.makeRDD(samples)
+
+    //val currentArray: Array[(Long, Int, String, Array[Double])] = df.collect().map(x=>(x(0).toString().toLong, x(1).toString().toInt, x(2).toString(), x(3).asInstanceOf[mutable.WrappedArray[Double]].toArray))
+    val currentArray: Array[Row] = df.rdd.collect()
+
+    samples = samples ++ currentArray
+    //samples.foreach(println)
+
+    val foo = samples.map(x=>x.toSeq).map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString(), x(3).asInstanceOf[mutable.WrappedArray[Double]]))
+
+   val sqlContext = spark
+    import sqlContext.implicits._
+    val bar = spark.sparkContext.parallelize(foo).toDF()
 
 
-    case class D(index: Long, label: Int, minority_type: String, features: Array[Double])
-    rdd.take(1).foreach(println)
+    val bar2 = bar.withColumnRenamed("_1", "index")
+      .withColumnRenamed("_2", "label")
+      .withColumnRenamed("_3", "minority_type")
+      .withColumnRenamed("_4", "features")
+
+    bar2.show()
+    println("Number of added SMOTE samples: " + smoteSamples.length)
+    println("Total sampled after SMOTE : " + bar2.count())
+
+    /*
+
 
     import org.apache.spark.sql.types.{StringType, StructField, StructType}
-    val smoteDF = spark.createDataFrame(rdd, StructType(Seq(StructField("index", IntegerType, false),
+    val smoteDF = spark.createDataFrame(rdd, StructType(Seq(StructField("index", LongType, true),
       StructField("label", IntegerType, false),
       StructField("minority_type", StringType, false),
       StructField("features", ArrayType(DoubleType), false)
     )))
 
-    println("SMOTEEEEEEEEEEEEEEEEE")
+
+
     smoteDF.show()
     val finalDF = underSample(spark, smoteDF, numSamples) //FITME - check if this is the right number
     finalDF.count()
-    //val xxx = df.schema.map(x => StructField(x.name, DoubleType, true))
-    //val smoteDF = spark.createDataFrame(rdd, StructType(xxx))
-
-    //val finalDF = underSample(spark, smoteDF, numSamples) //FITME - check if this is the right number
-
-    //val finalDF = smoteDF
-   // println("New total count: " + smoteDF.count())
-   // println("Final total count: " + finalDF.count())
-
-    //return finalDF
-
-
+*/
+    println("SMOTEEEEEEEEEEEEEEEEE")
     println("** THIS IS DF ***")
     df.show()
     df
