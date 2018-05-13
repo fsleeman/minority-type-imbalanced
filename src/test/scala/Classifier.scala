@@ -55,7 +55,7 @@ object Classifier {
     import spark.implicits._
 
     val maxLabels = data.select("label").distinct().count()
-    val numSamples = 1000
+    val numSamples = 200
     val Array(trainData, testData) = data.randomSplit(Array(0.8, 0.2)) //FIXME - does this need to be stratified?
     println("train data size: " + trainData.count())
     // Sample data
@@ -328,14 +328,8 @@ object Classifier {
 
   def underSample(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     println("~~~~~~~~~~~~~~~~~ Under Sample")
-    //val counts = getCountsByClass(spark, "label", df).collect().map(x => x(1).toString().toInt).sorted
-    //counts.foreach(println)
-
-    //val undersampleCount = counts(counts.length / 2).toInt
     var samples = Array[Row]() //FIXME - make this more parallel
 
-    //for (cls <- 0 to counts.length) {
-      //val currentClass = df.filter(df("label") === cls)
       val underSampleRatio = numSamples / df.count().toDouble
       if (underSampleRatio < 1.0) {
         val currentSamples = df.sample(false, underSampleRatio).collect()
@@ -353,7 +347,6 @@ object Classifier {
   }
 
   def smote(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
-    val numClasses = df.select(df("label")).distinct().count().toInt
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
     println("SMOTE counts")
 
@@ -389,19 +382,13 @@ object Classifier {
         // skip
     }
     samples = samples ++ smoteSamples
-
-    //val currentArray: Array[(Long, Int, String, Array[Double])] = df.collect().map(x=>(x(0).toString().toLong, x(1).toString().toInt, x(2).toString(), x(3).asInstanceOf[mutable.WrappedArray[Double]].toArray))
     val currentArray: Array[Row] = df.rdd.collect()
-
     samples = samples ++ currentArray
-    //samples.foreach(println)
-
     val foo = samples.map(x=>x.toSeq).map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString(), x(3).asInstanceOf[mutable.WrappedArray[Double]]))
 
-   val sqlContext = spark
+    val sqlContext = spark
     import sqlContext.implicits._
     val bar = spark.sparkContext.parallelize(foo).toDF()
-
 
     val bar2 = bar.withColumnRenamed("_1", "index")
       .withColumnRenamed("_2", "label")
@@ -412,86 +399,10 @@ object Classifier {
     println("Number of added SMOTE samples: " + smoteSamples.length)
     println("Total sampled after SMOTE : " + bar2.count())
 
-    /*
-
-
-    import org.apache.spark.sql.types.{StringType, StructField, StructType}
-    val smoteDF = spark.createDataFrame(rdd, StructType(Seq(StructField("index", LongType, true),
-      StructField("label", IntegerType, false),
-      StructField("minority_type", StringType, false),
-      StructField("features", ArrayType(DoubleType), false)
-    )))
-
-
-
-    smoteDF.show()
-    val finalDF = underSample(spark, smoteDF, numSamples) //FITME - check if this is the right number
-    finalDF.count()
-*/
     println("SMOTEEEEEEEEEEEEEEEEE")
-    println("** THIS IS DF ***")
-    df.show()
-    df
-    /*aggregatedCounts.show()
-    println(numClasses + " " + aggregatedCounts.count())
-    val maxClassCount = aggregatedCounts.select("count(label)").collect().toSeq.map(x => x(0).toString.toInt).max
-    println(maxClassCount)
-    //val smoteTo = maxClassCount / 2
-    var samples = ArrayBuffer[Row]() //FIXME - make this more parallel
-    for (cls <- 0 to numClasses) {
-      print("cls: " + cls + " ")
-      val cnt = aggregatedCounts.filter(aggregatedCounts("label") === cls.toDouble).collect()
-      print(cnt.length)
-      if (cnt.length == 1) { // make sure this cls exist in training set
+    val finalDF = underSample(spark, bar2, numSamples) //FITME - check if this is the right number
 
-        println(cnt(0)(0), cnt(0)(1))
-        val currentCount = cnt(0)(1).toString().toInt
-
-        val currentClass = df.filter(df("label") === cls)
-        if (currentCount < numSamples) {
-          val samplesToAdd = numSamples - currentCount
-          println(cls + " adding " + samplesToAdd)
-
-          val currentClassZipped = currentClass.collect().zipWithIndex
-
-          var smoteSamples = ArrayBuffer[Row]()
-          for (s <- 1 to samplesToAdd.toInt) {
-            def r = scala.util.Random.nextInt(currentClassZipped.length)
-
-            val rand = Array(r, r, r, r, r)
-            val sampled = currentClassZipped.filter(x => (rand.contains(x._2))).map(x => x._1) //FIXME - issues not taking duplicates
-
-            val xxxxx = (sampled.toList.map(x => x.toSeq.toList.map(_.toString().toDouble)))
-            val ddd = xxxxx.toList.transpose.map(_.sum / xxxxx.length)
-            val r2 = Row.fromSeq(ddd.toSeq)
-
-            smoteSamples += r2
-          }
-
-          samples = samples ++ smoteSamples
-        }
-        else {
-          //
-        }
-        samples = samples ++ currentClass.collect()
-      }
-    }
-    println(samples(0))
-
-    println("Number of added SMOTE samples: " + samples.length)
-    val rdd = spark.sparkContext.makeRDD(samples)
-
-
-    val xxx = df.schema.map(x => StructField(x.name, DoubleType, true))
-    val smoteDF = spark.createDataFrame(rdd, StructType(xxx))
-
-    val finalDF = underSample(spark, smoteDF, numSamples) //FITME - check if this is the right number
-
-    println("New total count: " + smoteDF.count())
-    println("Final total count: " + finalDF.count())
-
-    return finalDF*/
-
+    finalDF
   }
 
   def getCountsByClass(spark: SparkSession, label: String, df: DataFrame): DataFrame = {
@@ -511,8 +422,8 @@ object Classifier {
     val presentClasses = d.select("label").rdd.map(r => r(0)).collect()
 
     val overSampleCount = 1000
-    val underSampleCount = 100
-    val smoteSampleCount = 700
+    val underSampleCount = 200
+    val smoteSampleCount = 200
     var dfs: Array[DataFrame] = Array[DataFrame]()
     println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     for (l <- presentClasses) {
@@ -538,7 +449,7 @@ object Classifier {
   }
 
 
-  def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String]): DataFrame = {
+  def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String], samplingMethod: String): DataFrame = {
     val numLabels = df.select("label").distinct().count().toInt
 
     println("num labels: " + numLabels)
@@ -552,11 +463,14 @@ object Classifier {
     //val presentClasses = d.select("label").rdd.map(r => r(0)).collect()
 
     //FIXME - avoid passing spark as parameter?
-    val combinedDf = sampleData(spark, pickedTypes, "smote")
+    val combinedDf = sampleData(spark, pickedTypes, samplingMethod)
 
     println("pickedType count: " + pickedTypes.count())
     println("----------- total sampled count: " + combinedDf.count())
     pickedTypes.show()
+
+    convertFeaturesToVector(combinedDf)
+
     /*for (l <- presentClasses) {
       val samplingMethod = "oversample"
 
@@ -597,7 +511,6 @@ object Classifier {
 
 
 
-    convertFeaturesToVector(combinedDf)
   }
 
   def convertFeaturesToVector(df: DataFrame): DataFrame = {
@@ -706,15 +619,12 @@ object Classifier {
     minorityDF.show()
 
     val minorityTypes = Array("safe", "borderline")
-    val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, minorityTypes)
+    val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, minorityTypes, "undersample")
 
-
-   /* trainDataResampled.show()
-    //trainDataResampled.take(1).foreach(println)
     println("trainDataResampled:" + trainDataResampled.count())
     getCountsByClass(trainDataResampled.sparkSession,"label", trainDataResampled).show()
 
-    runClassifierMinorityType(trainDataResampled, testData)*/
+    runClassifierMinorityType(trainDataResampled, testData)
   }
 
   def main(args: Array[String]) {
@@ -739,8 +649,8 @@ object Classifier {
     def func(column: Column) = column.cast(DoubleType)
 
     val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
-    runSparKNN(preppedDataUpdated)
+    //runSparKNN(preppedDataUpdated)
 
-     //runClassifier(spark, preppedDataUpdated, "None")
+     runClassifier(spark, preppedDataUpdated, "undersample")
   }
 }
