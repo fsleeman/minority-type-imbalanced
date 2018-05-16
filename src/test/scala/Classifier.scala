@@ -55,7 +55,7 @@ object Classifier {
 
   def runClassifier(spark: SparkSession, df: DataFrame, samplingMethod: String) {
     import spark.implicits._
-    df.show()
+    //df.show()
 
     val Array(trainData, testData) = df.randomSplit(Array(0.8, 0.2))
 
@@ -76,10 +76,10 @@ object Classifier {
       .withColumnRenamed("_3", "minority_type")
       .withColumnRenamed("_4", "features")
     //val sampledData = sampleData(spark, data, samplingMethod)
-    results.show()
+    //results.show()
 
     val trainDataSampled = sampleData(spark, results, samplingMethod)
-    getCountsByClass(spark, "label", trainDataSampled)
+    //getCountsByClass(spark, "label", trainDataSampled)
 
 
 
@@ -93,7 +93,7 @@ object Classifier {
     println("train counts")
     getCountsByClass(spark, "label", trainDataSampled).show()
 
-    testData.show()
+    //testData.show()
 
     val inputCols = testData.columns.filter(_ != "label")
 
@@ -128,12 +128,12 @@ object Classifier {
      //specificity = TN / (FP + TN)
      //F-score = 2*TP /(2*TP + FP + FN)
 
-     confusionMatrix.show()
+//!!!confusionMatrix.show()
      val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
      val totalCount = rows.map(x => x.tail.map(y => y.toDouble.toInt).sum).sum
 
      val classMaps = testLabels.zipWithIndex.map(x => (x._2, x._1))
-     classMaps.foreach(println)
+     //classMaps.foreach(println)
 
      var sensitiviySum = 0.0
      var sensitiviyCount = 0
@@ -146,7 +146,7 @@ object Classifier {
        val fp = rowValueSum - tp
        val tn = totalCount - tp - fp - fn
 
-       println("tp: " + tp + " fp: " + fp + " tn: " + tn + " fn: " + fn)
+       //println("tp: " + tp + " fp: " + fp + " tn: " + tn + " fn: " + fn)
        val sensitivity = tp / (tp + fn).toFloat
        if (tp + fn > 0) {
          sensitiviySum += sensitivity
@@ -383,10 +383,10 @@ object Classifier {
 
   //assume there is only one class present
   def overSample(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
-    println("Total Count: " + df.count())
+    //println("Total Count: " + df.count())
     //val numLabels = df.select("label").distinct().count().toInt
     //println("num labels: " + numLabels)
-    df.select("label").distinct().show()
+    //df.select("label").distinct().show()
     //val labelCounts = df.groupBy("label").agg(count("label")).take(numLabels)
     //val maxLabelCount = labelCounts.map(x => x(1).toString().toInt).reduceLeft(_ max _)
     //println("\tmax count: " + maxLabelCount)
@@ -396,11 +396,11 @@ object Classifier {
     //for (l <- 0 to numLabels) {
       //val currentCase = df.filter(df("label") === l)
       val samplesToAdd = numSamples - df.count()
-      println("\t\tto add: " + samplesToAdd)
+      //println("\t\tto add: " + samplesToAdd)
       val currentCount = df.count()
       if (0 < currentCount && currentCount < numSamples) {
         val currentSamples = df.sample(true, (numSamples - currentCount) / currentCount.toDouble).collect()
-        println("samples created: " + currentSamples.length)
+      //  println("samples created: " + currentSamples.length)
         samples = samples ++ currentSamples
       }
 
@@ -423,30 +423,30 @@ object Classifier {
       //val totalResults = df.union(currentCase.sample(true, (maxLabelCount - currentCase.count()/currentCase.count().toDouble)))
       //println(totalResults.count())
    //// }
-    println("new count: " + samples.length)
+   // println("new count: " + samples.length)
 
     val foo = spark.sparkContext.parallelize(samples)
     val x = spark.sqlContext.createDataFrame(foo, df.schema)
     val xxx = df.union(x).toDF()
-    println("joined count: " + xxx.count())
+    //println("joined count: " + xxx.count())
     return xxx//df.union(x).toDF()
   }
 
   def underSample(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
-    println("~~~~~~~~~~~~~~~~~ Under Sample")
+    //println("~~~~~~~~~~~~~~~~~ Under Sample")
     var samples = Array[Row]() //FIXME - make this more parallel
 
       val underSampleRatio = numSamples / df.count().toDouble
       if (underSampleRatio < 1.0) {
         val currentSamples = df.sample(false, underSampleRatio).collect()
         samples = samples ++ currentSamples
-        println("new samples: " + samples.length) //FIXME - not working correctly
+        //println("new samples: " + samples.length) //FIXME - not working correctly
         val foo = spark.sparkContext.parallelize(samples)
         val x = spark.sqlContext.createDataFrame(foo, df.schema)
         return x
       }
       else {
-        println("new samples: " + df.count())
+        //println("new samples: " + df.count())
         //samples = samples ++ df.collect()
         return df
       }
@@ -454,21 +454,21 @@ object Classifier {
 
   def smote(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
-    println("SMOTE counts")
+    //println("SMOTE counts")
 
     var samples = ArrayBuffer[Row]() //FIXME - make this more parallel
     val currentCount = df.count()
     val cls = aggregatedCounts.take(1)(0)(0)
-    aggregatedCounts.show()
-    println("cls: " + cls + " class count: "  + currentCount)
+    //aggregatedCounts.show()
+    //println("cls: " + cls + " class count: "  + currentCount)
 
     var smoteSamples = ArrayBuffer[Row]()
     if (currentCount < numSamples) {
       val samplesToAdd = numSamples - currentCount
-      println(cls + " adding " + samplesToAdd)
+      //println(cls + " adding " + samplesToAdd)
 
       val features = df.select("features")
-      features.printSchema()
+      //features.printSchema()
 
       val currentClassZipped = df.collect().zipWithIndex
 
@@ -501,11 +501,11 @@ object Classifier {
       .withColumnRenamed("_3", "minority_type")
       .withColumnRenamed("_4", "features")
 
-    bar2.show()
-    println("Number of added SMOTE samples: " + smoteSamples.length)
-    println("Total sampled after SMOTE : " + bar2.count())
+    //bar2.show()
+    //println("Number of added SMOTE samples: " + smoteSamples.length)
+    //println("Total sampled after SMOTE : " + bar2.count())
 
-    println("SMOTEEEEEEEEEEEEEEEEE")
+    //println("SMOTEEEEEEEEEEEEEEEEE")
     val finalDF = underSample(spark, bar2, numSamples) //FITME - check if this is the right number
 
     finalDF
@@ -529,16 +529,19 @@ object Classifier {
     val presentClasses = d.select("label").rdd.map(r => r(0)).collect()
 
 
-    val counts =getCountsByClass(spark, "label", df)
+    val counts = getCountsByClass(spark, "label", df)
+    val maxClassCount = counts.select("_2").agg(max("_2")).take(1)(0)(0).toString().toInt
+    val minClassCount = counts.select("_2").agg(min("_2")).take(1)(0)(0).toString().toInt
 
-    println("Counts: ")
-    counts.show()
+//!!!println(minClassCount + " " + maxClassCount)
+//!!!println("Original Train Counts: ")
+//!!!counts.show()
 
-    val overSampleCount = 1000
-    val underSampleCount = 200
-    val smoteSampleCount = 500
+    val overSampleCount = maxClassCount
+    val underSampleCount = minClassCount
+    val smoteSampleCount = maxClassCount / 2
     var dfs: Array[DataFrame] = Array[DataFrame]()
-    println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+   // println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     for (l <- presentClasses) {
       val currentCase = df.filter(df("label") === l).toDF()
       val filteredDF2 = samplingMethod match {
@@ -550,13 +553,10 @@ object Classifier {
       dfs = dfs :+ filteredDF2
     }
 
-    println(dfs(0).count())
-    println(dfs(1).count())
-    println(dfs(2).count())
-    println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    //println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     val all = dfs.reduce(_ union  _)
 
-    println("ALL count: " + all.count())
+    //println("ALL count: " + all.count())
     convertFeaturesToVector(all)
 
     return all
@@ -598,8 +598,8 @@ object Classifier {
   def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String], samplingMethod: String): DataFrame = {
     val numLabels = df.select("label").distinct().count().toInt
 
-    println("num labels: " + numLabels)
-    var samples = Array[Row]() //FIXME - make this more parallel
+    //println("num labels: " + numLabels)
+    //var samples = Array[Row]() //FIXME - make this more parallel
 
     //val types =  Array("safe", "borderline")//Array("safe", "borderline")
     //FIXME - some could be zero if split is too small
@@ -611,9 +611,9 @@ object Classifier {
     //FIXME - avoid passing spark as parameter?
     val combinedDf = sampleData(spark, pickedTypes, samplingMethod)//sampleDataMinorityType(spark, pickedTypes, samplingMethod)
 
-    println("pickedType count: " + pickedTypes.count())
-    println("----------- total sampled count: " + combinedDf.count())
-    pickedTypes.show()
+    //println("pickedType count: " + pickedTypes.count())
+   // println("----------- total sampled count: " + combinedDf.count())
+    //pickedTypes.show()
     //combinedDf
     convertFeaturesToVector(combinedDf)
 
@@ -662,7 +662,7 @@ object Classifier {
   def convertFeaturesToVector(df: DataFrame): DataFrame = {
     val spark = df.sparkSession
     import spark.implicits._
-    println("here")
+    //println("here")
     val convertToVector = udf((array: Seq[Double]) => {
       Vectors.dense(array.map(_.toDouble).toArray)
     })
@@ -677,13 +677,13 @@ object Classifier {
     //val maxLabels = train.select("label").distinct().count()
     val maxLabel: Int = test.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
 
-    println("test counts")
-    getCountsByClass(spark, "label", test).show()
+    //println("test counts")
+    //getCountsByClass(spark, "label", test).show()
 
-    println("train counts")
-    getCountsByClass(spark, "label", train).show()
+    //println("train counts")
+    //getCountsByClass(spark, "label", train).show()
 
-    test.show()
+    //test.show()
 
     val inputCols = test.columns.filter(_ != "label")
 
@@ -717,12 +717,12 @@ object Classifier {
     //specificity = TN / (FP + TN)
     //F-score = 2*TP /(2*TP + FP + FN)
 
-    confusionMatrix.show()
+///!!!confusionMatrix.show()
     val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
     val totalCount = rows.map(x => x.tail.map(y => y.toDouble.toInt).sum).sum
 
     val classMaps = testLabels.zipWithIndex.map(x => (x._2, x._1))
-    classMaps.foreach(println)
+    //classMaps.foreach(println)
 
     var sensitiviySum = 0.0
     var sensitiviyCount = 0
@@ -735,7 +735,7 @@ object Classifier {
       val fp = rowValueSum - tp
       val tn = totalCount - tp - fp - fn
 
-      println("tp: " + tp + " fp: " + fp + " tn: " + tn + " fn: " + fn)
+    //  println("tp: " + tp + " fp: " + fp + " tn: " + tn + " fn: " + fn)
       val sensitivity = tp / (tp + fn).toFloat
       if (tp + fn > 0) {
         sensitiviySum += sensitivity
@@ -743,39 +743,101 @@ object Classifier {
       }
 
     }
-    println(sensitiviyCount + " " + sensitiviySum)
+    //println(sensitiviyCount + " " + sensitiviySum)
     println("AvAcc: " + sensitiviySum / sensitiviyCount)
   }
 
   import edu.vcu.sleeman.MinorityType.getMinorityTypeStatus
 
-  def runSparKNN(df: DataFrame, samplingMethod: String): Unit = {
-    println("Sampled Counts")
-    val aggregatedCounts = df.groupBy("label").agg(count("label")) //FIXME
-    aggregatedCounts.show()
-
+  def runSparkNN(df: DataFrame, samplingMethod: String, rw: Array[String]): Unit = {
+    //println("Sampled Counts")
+    //val aggregatedCounts = df.groupBy("label").agg(count("label")) //FIXME
+    //aggregatedCounts.show()
 
     val Array(trainData, testData) = df.randomSplit(Array(0.8, 0.2))
-    println("Train Data Count: " + trainData.count())
-    println("Test Data Count: " + testData.count())
+    //df.show()
 
-    getCountsByClass(testData.sparkSession,"label", testData).show()
+    val minorityDF =
+      if(rw(0) == "read") {
+        val readData = df.sparkSession.read.
+          option("inferSchema", true).
+          option("header", true).
+          csv(rw(1))
 
-    df.show()
-    val minorityDF = getMinorityTypeStatus(trainData)
-    minorityDF.show()
+        val stringToArray = udf((item: String)=>item.dropRight(1).drop(1).split(",").map(x=>x.toString().toDouble))
 
-    val minorityTypes = Array("safe", "borderline")
-    val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, minorityTypes, samplingMethod)
+        readData.withColumn("features", stringToArray(col("features")))
+    }
+    else if (rw(0) == "write") {
+      val results = getMinorityTypeStatus(trainData)
+        val stringify = udf((vs: Seq[String]) => s"""[${vs.mkString(",")}]""")
 
-    println("trainDataResampled:" + trainDataResampled.count())
-    getCountsByClass(trainDataResampled.sparkSession,"label", trainDataResampled).show()
+        results.withColumn("features", stringify(col("features"))).
+          repartition(1).
+          write.format("com.databricks.spark.csv").
+          option("header", "true").
+          mode("overwrite").
+          save(rw(1))
+
+        results
+    }
+    else {
+        getMinorityTypeStatus(trainData)
+    }
+
+    //minorityDF.write.format("com.databricks.spark.csv").option("header", "true").save("output.csv")
+
+
+
+
+
+
+
+    /* .write.
+     format("com.databricks.spark.csv").
+     option("header", "true").
+     save("/tmp/myfile.csv")
+     */
+
+    //for(i<-0 to 14) {
+    for(i<-0 to 0) {
+      val currentMinorityTypes = new ArrayBuffer[String]()
+      val safe = if(0 !=(i & 1)) false else { currentMinorityTypes += "safe"; true}
+      val borderline = if(0 !=(i & 2)) false else {currentMinorityTypes += "borderline"; true }
+      val rare = if(0 !=(i & 4)) false else { currentMinorityTypes += "rare"; true}
+      val outlier = if(0 !=(i & 8)) false else { currentMinorityTypes += "outlier"; true }
+     // println(safe + " " + borderline + " " + rare + " " + outlier)
+      //println()
+      //currentMinorityTypes.foreach(println)
+
+    println("*** safe: [" + safe + "]\tborderline: [" + borderline + "]\trare: [" + rare + "]\toutlier: [" + outlier + "] ***")
+      //println(currentMinorityTypes.toString())
+      //v/al minorityTypes = Array("safe", "borderline")
+      val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, Array("safe").toArray, samplingMethod)
+
+    //println("trainDataResampled:" + trainDataResampled.count())
+//!!!println("Train Data Count: " + trainData.count()
+// !!!getCountsByClass(trainDataResampled.sparkSession,"label", trainDataResampled).show()
+
+//!!!    println("Test Data Count: " + testData.count())
+//!!!    getCountsByClass(testData.sparkSession,"label", testData).show()
 
     runClassifierMinorityType(trainDataResampled, testData)
   }
 
+    }
+
+
   def main(args: Array[String]) {
+
+    val t0 = System.nanoTime()
     Logger.getLogger("org").setLevel(Level.ERROR)
+
+
+    val foo = "[1863.0,37.0,17.0,9.2]"
+
+
+    //return
 
     val spark = SparkSession.builder().getOrCreate()
 
@@ -783,22 +845,59 @@ object Classifier {
     val labelColumnName = args(1)
     val useHeader = if (args.length > 2 && args(2).equals("yes")) true else false
 
+    val rw =
+      if(args.length > 4) {
+        if(args(3) == "read") Array("read", args(4).toString())
+        else if(args(3)=="write") Array("write", args(4).toString())
+        else Array("","")
+      }
+      else { Array("","") }
+
+    println(rw)
+
+    /*
+    val mt = spark.read.
+      option("inferSchema", true).
+      option("header", useHeader).
+      csv("/tmp/myfile.csv/part-00000-c01bd9c3-cf63-44a3-884d-48c5e3e95437-c000.csv")
+
+    mt.show()
+    */
+
     val df1 = spark.read.
       option("inferSchema", true).
       option("header", useHeader).
       csv(input_file)
 
-    df1.show()
     val df = df1.repartition(8)
-
     val preppedDataUpdated1 = df.withColumnRenamed(labelColumnName, "label")
 
     def func(column: Column) = column.cast(DoubleType)
 
     val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
 
-    runSparKNN(preppedDataUpdated, "smote")
+    //
+    //val samplingMethods = Array("None", "undersample", "oversample", "smote")
+    val samplingMethods = Array("None")
+    /*println("=================== Standard ====================")
+    for (method <- samplingMethods) {
+      println("=================== " + method + " ====================")
+      runClassifier(spark, preppedDataUpdated, method)
+    }*/
 
-   // runClassifier(spark, preppedDataUpdated, "undersample")
+
+    /*println("=================== Minority Class ====================")
+    for (method <- samplingMethods) {
+      println("=================== " + method + " ====================")
+      runSparkNN(preppedDataUpdated, method)
+    }
+*/
+    runSparkNN(preppedDataUpdated, "None", rw)
+
+    val t1 = System.nanoTime()
+
+
+    println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
+
   }
 }

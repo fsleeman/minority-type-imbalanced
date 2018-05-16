@@ -111,7 +111,7 @@ object MinorityType {
     //FIXME - are the index values needed or will the order always be in the right direction?
     val minorityData: RDD[(Long, Int, String, Array[Double])] = train_data.map(x => getDistances(x, train_data_collected)).cache() //FIXME try not caching this?
 
-    println("****************************")
+    //println("****************************")
     //minorityData.map(x=>x._4.map(y=>y+10000)).take(1)(0).foreach(println)
     //FIXME -return indicies per class/minority type
 
@@ -136,8 +136,8 @@ object MinorityType {
     //val dddd: Array[(Any, Any, Any, Seq[Char])] = bar.map(x=>(x(0), x(1), x(2), x(3).toString().toSeq))
 
     //dddd.foreach(println)
-    results.printSchema()
-    results.show()
+    //results.printSchema()
+    //results.show()
 
 
     results.withColumnRenamed("_1", "index")
