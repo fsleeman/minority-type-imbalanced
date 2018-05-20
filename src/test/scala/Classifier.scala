@@ -26,9 +26,8 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 
 import scala.collection.mutable
 import scala.reflect.ClassTag
-
-
 import org.apache.spark.ml.classification._
+import org.apache.spark.ml.knn.KNN
 
 //FIXME - turn classes back to Ints instead of Doubles
 
@@ -751,7 +750,7 @@ object Classifier {
 
   import edu.vcu.sleeman.MinorityType.getMinorityTypeStatus
 
-  def runSparkNN(df: DataFrame, samplingMethod: String, rw: Array[String]): Unit = {
+  def runNaiveNN(df: DataFrame, samplingMethod: String, rw: Array[String]): Unit = {
     //println("Sampled Counts")
     //val aggregatedCounts = df.groupBy("label").agg(count("label")) //FIXME
     //aggregatedCounts.show()
@@ -829,77 +828,25 @@ object Classifier {
 
     }
 
+  def getSparkNNMinorityReport(df: DataFrame): Unit = {
+    println("Minority Class Types")
+    val groupedDF: DataFrame = df.groupBy("_1", "_2").count()
+    val listOfClasses = groupedDF.select("_1").distinct().select("_1").collect().map(_(0)).toList
 
-  def main(args: Array[String]) {
+    for(currentClass<-listOfClasses) {
+      var minorityTypeMap = Map[String, Int]("safe"->0, "borderline"->0, "rare"->0, "outlier"->0)
 
-    val t0 = System.nanoTime()
-    Logger.getLogger("org").setLevel(Level.ERROR)
-
-
-    import org.apache.spark.ml.classification.KNNClassifier
-    import org.apache.spark.ml.knn.KNN
-
-
-    //return
-
-    val spark = SparkSession.builder().getOrCreate()
-
-    val input_file = args(0)
-    val labelColumnName = args(1)
-    val useHeader = if (args.length > 2 && args(2).equals("yes")) true else false
-
-    val rw =
-      if(args.length > 4) {
-        if(args(3) == "read") Array("read", args(4).toString())
-        else if(args(3)=="write") Array("write", args(4).toString())
-        else Array("","")
+      val currentLabel = groupedDF.filter(col("_1").===(currentClass)).collect()
+      for(minorityType<-currentLabel) {
+        minorityTypeMap += minorityType(1).toString -> minorityType(2).toString().toInt
       }
-      else { Array("","") }
-
-    println(rw)
-
-    /*
-    val mt = spark.read.
-      option("inferSchema", true).
-      option("header", useHeader).
-      csv("/tmp/myfile.csv/part-00000-c01bd9c3-cf63-44a3-884d-48c5e3e95437-c000.csv")
-
-    mt.show()
-    */
-
-    val df1 = spark.read.
-      option("inferSchema", true).
-      option("header", useHeader).
-      csv(input_file)
-
-    val df = df1.repartition(8)
-    val preppedDataUpdated1 = df.withColumnRenamed(labelColumnName, "label")
-
-    def func(column: Column) = column.cast(DoubleType)
-
-    val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
-
-    //
-    //val samplingMethods = Array("None", "undersample", "oversample", "smote")
-    val samplingMethods = Array("None")
-    /*println("=================== Standard ====================")
-    for (method <- samplingMethods) {
-      println("=================== " + method + " ====================")
-      runClassifier(spark, preppedDataUpdated, method)
-    }*/
-
-
-    /*println("=================== Minority Class ====================")
-    for (method <- samplingMethods) {
-      println("=================== " + method + " ====================")
-      runSparkNN(preppedDataUpdated, method)
+      println("Class: " + currentClass + " safe: " + minorityTypeMap("safe") + " borderline: " + minorityTypeMap("borderline") +
+        " rare: " + minorityTypeMap("rare") + "  outlier: " + minorityTypeMap("outlier"))
     }
-*/
-    val foo2 = new KNN()
-    foo2.setK(3)
-    foo2.setZZZ(71)
-    println(foo2.getK)
+  }
 
+  def runSparkNN(preppedDataUpdated: DataFrame): Unit = {
+    val spark = preppedDataUpdated.sparkSession
     val inputCols = preppedDataUpdated.columns.filter(_ != "label")
 
     val assembler = new VectorAssembler().
@@ -907,9 +854,6 @@ object Classifier {
       setOutputCol("features")
 
     val assembledTestData = assembler.transform(preppedDataUpdated).select("features")
-      //assembledTestData.show()
-
-
 
     val train_index = preppedDataUpdated.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
 
@@ -970,76 +914,138 @@ object Classifier {
     println(ssss.length)//.take(1)(0))
     println(ssss(0))
 
-    def barbar(wrappedArray: mutable.WrappedArray[Any]): (Int, String) = {
-      //for(i<-0 to zzzzz.length-1) {
-
-      //}
-
-      //println(wrappedArray.toString())
-      //val zzzzz: mutable.Seq[Any] = wrappedArray.asInstanceOf[mutable.WrappedArray[Any]]
-      val nearestLabels = Array[Int]()
-
-      def getLabel(neighbor: Any): Int = {
-        val index = neighbor.toString().indexOf(",")
-        neighbor.toString().substring(1, index).toInt
-      }
-
-      val currentLabel = getLabel(wrappedArray(0))
-      var currentCount = 0
-      for(i<-1 to wrappedArray.length-1) {
-        nearestLabels :+ getLabel(wrappedArray(i))
-        if (getLabel(wrappedArray(i)) == currentLabel) {
-         currentCount += 1
-      }
-
-        //val index = wrappedArray(i).toString().indexOf(",")
-        //print(wrappedArray(i).toString().substring(1, index).toInt + ",")
-        //nearestLabels :+ wrappedArray(i).toString().substring(1, index).toInt
-      }
-      print("*" + getMinorityClassLabel(currentCount))
-      println()
-
-      (currentLabel, getMinorityClassLabel(currentCount))
-    }
-
-
     val tttt: Array[(Int, String)] = ssss.map(x=>x.asInstanceOf[mutable.WrappedArray[Any]]).map(x=>barbar(x))
     println("new value: " + tttt.take(1)(0).toString())
 
 
-    spark.sparkContext.parallelize(tttt).toDF().show()
+    val GGG = spark.sparkContext.parallelize(tttt).toDF()
+    GGG.show()
+    getSparkNNMinorityReport(GGG)
 
+    /* val zzzzz: mutable.Seq[Any] = ssss(0).asInstanceOf[mutable.WrappedArray[Any]]
+     for(i<-0 to zzzzz.length-1) {
 
-   /* val zzzzz: mutable.Seq[Any] = ssss(0).asInstanceOf[mutable.WrappedArray[Any]]
-    for(i<-0 to zzzzz.length-1) {
+       val y = zzzzz(i)
+       val index = y.toString().indexOf(",")
 
-      val y = zzzzz(i)
-      val index = y.toString().indexOf(",")
+       println(y.toString().substring(1, index).toInt)
+       //val hhh = zzzzz(0)
 
-      println(y.toString().substring(1, index).toInt)
-      //val hhh = zzzzz(0)
-
-      //val index = zzzzz(0).toString()//.indexOf(",")
-      //println(zzzzz(i).toString().substring(1, index).toInt)
-      //println(zzzzz(6))//.toString().substring(1,x.toString().indexOf(",")).toInt)
-    }*/
+       //val index = zzzzz(0).toString()//.indexOf(",")
+       //println(zzzzz(i).toString().substring(1, index).toInt)
+       //println(zzzzz(6))//.toString().substring(1,x.toString().indexOf(",")).toInt)
+     }*/
 
     //zzzzz.map(x=>x.toString())//.substring(1,x.toString().indexOf(",")).toInt)
     //println(zzzzz(6).toString().substring(1,x.toString().indexOf(",")).toInt)
 
+
+  }
+
+  def barbar(wrappedArray: mutable.WrappedArray[Any]): (Int, String) = {
+    //for(i<-0 to zzzzz.length-1) {
+
+    //}
+
+    //println(wrappedArray.toString())
+    //val zzzzz: mutable.Seq[Any] = wrappedArray.asInstanceOf[mutable.WrappedArray[Any]]
+    val nearestLabels = Array[Int]()
+
+    def getLabel(neighbor: Any): Int = {
+      val index = neighbor.toString().indexOf(",")
+      neighbor.toString().substring(1, index).toInt
+    }
+
+    val currentLabel = getLabel(wrappedArray(0))
+    var currentCount = 0
+    for(i<-1 to wrappedArray.length-1) {
+      nearestLabels :+ getLabel(wrappedArray(i))
+      if (getLabel(wrappedArray(i)) == currentLabel) {
+        currentCount += 1
+      }
+
+      //val index = wrappedArray(i).toString().indexOf(",")
+      //print(wrappedArray(i).toString().substring(1, index).toInt + ",")
+      //nearestLabels :+ wrappedArray(i).toString().substring(1, index).toInt
+    }
+    //print("*" + getMinorityClassLabel(currentCount))
+    //println()
+
+    (currentLabel, getMinorityClassLabel(currentCount))
+  }
+
+  def main(args: Array[String]) {
+
+    val t0 = System.nanoTime()
+    Logger.getLogger("org").setLevel(Level.ERROR)
+
+    import org.apache.spark.ml.classification.KNNClassifier
+    import org.apache.spark.ml.knn.KNN
+
+    val spark = SparkSession.builder().getOrCreate()
+
+    val input_file = args(0)
+    val labelColumnName = args(1)
+    val useHeader = if (args.length > 2 && args(2).equals("yes")) true else false
+
+    val rw =
+      if(args.length > 4) {
+        if(args(3) == "read") Array("read", args(4).toString())
+        else if(args(3)=="write") Array("write", args(4).toString())
+        else Array("","")
+      }
+      else { Array("","") }
+
+    println(rw)
+
+    val df1 = spark.read.
+      option("inferSchema", true).
+      option("header", useHeader).
+      csv(input_file)
+
+    val df = df1.repartition(8)
+    val preppedDataUpdated1 = df.withColumnRenamed(labelColumnName, "label")
+
+    def func(column: Column) = column.cast(DoubleType)
+
+    val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
+
+    //
+    //val samplingMethods = Array("None", "undersample", "oversample", "smote")
+    val samplingMethods = Array("None")
+    /*println("=================== Standard ====================")
+    for (method <- samplingMethods) {
+      println("=================== " + method + " ====================")
+      runClassifier(spark, preppedDataUpdated, method)
+    }*/
+
+
+    /*println("=================== Minority Class ====================")
+    for (method <- samplingMethods) {
+      println("=================== " + method + " ====================")
+      runNaiveNN(preppedDataUpdated, method)
+    }
+*/
+
+    runSparkNN(preppedDataUpdated)
+
+
+
+
+
     return
-    type Ftype = (Int, Vector)
-    val gg = fooxx(0).asInstanceOf[mutable.WrappedArray[Any]]
-    println(gg.getClass)
+  /* // type Ftype = (Int, Vector)
+   // val gg = fooxx(0).asInstanceOf[mutable.WrappedArray[Any]]
+  //  println(gg.getClass)
 
 
 
-    val xxxxx: mutable.Seq[Any] = fooxx(0).asInstanceOf[mutable.WrappedArray[Any]]
+   // val xxxxx: mutable.Seq[Any] = fooxx(0).asInstanceOf[mutable.WrappedArray[Any]]
     //val fff = xxxxx(0).toString
 
     val zzz: mutable.Seq[Int] = xxxxx.map(x=>x.toString().substring(1,x.toString().indexOf(",")).toInt)
     zzz.foreach(println)
-
+*/
     /*val foo4 = udf((array: (Int, Array[Double])) => {
       println(array)
     })*/
