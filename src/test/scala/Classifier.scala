@@ -28,6 +28,8 @@ import scala.collection.mutable
 import scala.reflect.ClassTag
 
 
+import org.apache.spark.ml.classification._
+
 //FIXME - turn classes back to Ints instead of Doubles
 
 object Classifier {
@@ -834,7 +836,8 @@ object Classifier {
     Logger.getLogger("org").setLevel(Level.ERROR)
 
 
-    val foo = "[1863.0,37.0,17.0,9.2]"
+    import org.apache.spark.ml.classification.KNNClassifier
+    import org.apache.spark.ml.knn.KNN
 
 
     //return
@@ -892,10 +895,163 @@ object Classifier {
       runSparkNN(preppedDataUpdated, method)
     }
 */
-    runSparkNN(preppedDataUpdated, "None", rw)
+    val foo2 = new KNN()
+    foo2.setK(3)
+    foo2.setZZZ(71)
+    println(foo2.getK)
 
+    val inputCols = preppedDataUpdated.columns.filter(_ != "label")
+
+    val assembler = new VectorAssembler().
+      setInputCols(inputCols).
+      setOutputCol("features")
+
+    val assembledTestData = assembler.transform(preppedDataUpdated).select("features")
+      //assembledTestData.show()
+
+
+
+    val train_index = preppedDataUpdated.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
+
+    val train_data = train_index.map({ r =>
+      val array = r._2.toSeq.toArray.reverse
+      val cls = array.head.toString().toDouble.toInt
+      val rowMapped: Array[Double] = array.tail.map(_.toString().toDouble)
+      //NOTE - This needs to be back in the original order to train/test works correctly
+      (r._1, (cls, rowMapped.reverse))
+    })
+
+    //val foo: Seq[Double] = train_data.take(1)(0)._2._2.toSeq//.foreach(println)
+    val bar = train_data.map(x=>(x._2._1, x._2._2.toSeq))
+
+
+
+    val leafSize = 5
+
+    val knn = new KNN()
+      .setTopTreeSize(1000 / 10)
+      .setTopTreeLeafSize(leafSize)
+      .setSubTreeLeafSize(leafSize)
+      .setAuxCols(Array("label", "features"))
+
+    //val spark = train.sparkSession
+    import spark.implicits._
+    val df2 = bar.toDF().withColumnRenamed("value" ,"features")
+      .withColumnRenamed("_1", "label")
+      .withColumnRenamed("_2", "features")
+
+    val df3 = convertFeaturesToVector(df2)
+    df3.show()
+    val model = knn.fit2(df3).setK(11)
+
+    val results: DataFrame = model.transform2(df3)
+    type FOOTYPE = (Int, Array[Double])
+    //results.printSchema()
+    results.show()
+
+
+
+    val n = results.select( "neighbors")
+    n.show()
+    n.printSchema()
+
+    val fooxx: Row = n.take(1)(0)
+    println(fooxx.schema)
+
+
+    val foo4 = udf((array: String) => {
+      val index = array.indexOf(",")
+      array.substring(1, index).toInt
+    })
+
+    val collected: Array[Row] = n.collect()
+
+    val ssss = collected.map(x=>x(0))//.map(x=>x(0).asInstanceOf[mutable.WrappedArray[Any]]).head//(.map(x=>x.toString().substring(1,x.toString().indexOf(",")).toInt)
+    println(ssss.length)//.take(1)(0))
+    println(ssss(0))
+
+    def barbar(wrappedArray: mutable.WrappedArray[Any]): Array[Int] = {
+      //for(i<-0 to zzzzz.length-1) {
+
+      //}
+
+      //println(wrappedArray.toString())
+      //val zzzzz: mutable.Seq[Any] = wrappedArray.asInstanceOf[mutable.WrappedArray[Any]]
+      val nearestLabels = Array[Int]()
+      for(i<-0 to wrappedArray.length-1) {
+        val index = wrappedArray(i).toString().indexOf(",")
+        print(wrappedArray(i).toString().substring(1, index).toInt + ",")
+        nearestLabels :+ wrappedArray(i).toString().substring(1, index).toInt
+      }
+      println()
+
+        nearestLabels
+    }
+
+
+    val tttt = ssss.map(x=>x.asInstanceOf[mutable.WrappedArray[Any]]).map(x=>barbar(x))
+    println("new value: " + tttt.take(1)(0).toString())
+
+
+   /* val zzzzz: mutable.Seq[Any] = ssss(0).asInstanceOf[mutable.WrappedArray[Any]]
+    for(i<-0 to zzzzz.length-1) {
+
+      val y = zzzzz(i)
+      val index = y.toString().indexOf(",")
+
+      println(y.toString().substring(1, index).toInt)
+      //val hhh = zzzzz(0)
+
+      //val index = zzzzz(0).toString()//.indexOf(",")
+      //println(zzzzz(i).toString().substring(1, index).toInt)
+      //println(zzzzz(6))//.toString().substring(1,x.toString().indexOf(",")).toInt)
+    }*/
+
+    //zzzzz.map(x=>x.toString())//.substring(1,x.toString().indexOf(",")).toInt)
+    //println(zzzzz(6).toString().substring(1,x.toString().indexOf(",")).toInt)
+
+    return
+    type Ftype = (Int, Vector)
+    val gg = fooxx(0).asInstanceOf[mutable.WrappedArray[Any]]
+    println(gg.getClass)
+
+
+
+    val xxxxx: mutable.Seq[Any] = fooxx(0).asInstanceOf[mutable.WrappedArray[Any]]
+    //val fff = xxxxx(0).toString
+
+    val zzz: mutable.Seq[Int] = xxxxx.map(x=>x.toString().substring(1,x.toString().indexOf(",")).toInt)
+    zzz.foreach(println)
+
+    /*val foo4 = udf((array: (Int, Array[Double])) => {
+      println(array)
+    })*/
+/*
+    def foo4(a: Any): Int ={
+      val temp = a.toString()
+      val index = temp.indexOf(",")
+      val r = temp.substring(1, index)
+      5
+    }
+
+    /*val myUDF = udf((inputMapping: Row) => inputMapping
+      .map { case (Row(i1: Int, i2: Int), value) => (i1 + i2, value) }
+    )*/
+
+    println(xxxxx.length)
+    for(x<-xxxxx) {
+
+    }
+    println(xxxxx(0).asInstanceOf[Any])
+    println(xxxxx(0).getClass)
+*/
+    //println(xxxxx.length)
+    //val f = xxxxx.head
+
+
+    //results.show()
+    //runSparkNN(preppedDataUpdated, "None", rw)
     val t1 = System.nanoTime()
-
 
     println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
 
