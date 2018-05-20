@@ -942,7 +942,7 @@ object Classifier {
 
     val df3 = convertFeaturesToVector(df2)
     df3.show()
-    val model = knn.fit2(df3).setK(11)
+    val model = knn.fit2(df3).setK(6)
 
     val results: DataFrame = model.transform2(df3)
     type FOOTYPE = (Int, Array[Double])
@@ -970,7 +970,7 @@ object Classifier {
     println(ssss.length)//.take(1)(0))
     println(ssss(0))
 
-    def barbar(wrappedArray: mutable.WrappedArray[Any]): Array[Int] = {
+    def barbar(wrappedArray: mutable.WrappedArray[Any]): (Int, String) = {
       //for(i<-0 to zzzzz.length-1) {
 
       //}
@@ -978,19 +978,36 @@ object Classifier {
       //println(wrappedArray.toString())
       //val zzzzz: mutable.Seq[Any] = wrappedArray.asInstanceOf[mutable.WrappedArray[Any]]
       val nearestLabels = Array[Int]()
-      for(i<-0 to wrappedArray.length-1) {
-        val index = wrappedArray(i).toString().indexOf(",")
-        print(wrappedArray(i).toString().substring(1, index).toInt + ",")
-        nearestLabels :+ wrappedArray(i).toString().substring(1, index).toInt
+
+      def getLabel(neighbor: Any): Int = {
+        val index = neighbor.toString().indexOf(",")
+        neighbor.toString().substring(1, index).toInt
       }
+
+      val currentLabel = getLabel(wrappedArray(0))
+      var currentCount = 0
+      for(i<-1 to wrappedArray.length-1) {
+        nearestLabels :+ getLabel(wrappedArray(i))
+        if (getLabel(wrappedArray(i)) == currentLabel) {
+         currentCount += 1
+      }
+
+        //val index = wrappedArray(i).toString().indexOf(",")
+        //print(wrappedArray(i).toString().substring(1, index).toInt + ",")
+        //nearestLabels :+ wrappedArray(i).toString().substring(1, index).toInt
+      }
+      print("*" + getMinorityClassLabel(currentCount))
       println()
 
-        nearestLabels
+      (currentLabel, getMinorityClassLabel(currentCount))
     }
 
 
-    val tttt = ssss.map(x=>x.asInstanceOf[mutable.WrappedArray[Any]]).map(x=>barbar(x))
+    val tttt: Array[(Int, String)] = ssss.map(x=>x.asInstanceOf[mutable.WrappedArray[Any]]).map(x=>barbar(x))
     println("new value: " + tttt.take(1)(0).toString())
+
+
+    spark.sparkContext.parallelize(tttt).toDF().show()
 
 
    /* val zzzzz: mutable.Seq[Any] = ssss(0).asInstanceOf[mutable.WrappedArray[Any]]
