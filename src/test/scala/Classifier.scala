@@ -16,7 +16,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
 import org.apache.spark.sql.DataFrame
-
+import java.io.PrintWriter
+import java.io.File
 import scala.util.Random
 import org.apache.log4j._
 import org.apache.spark.ml.param.Param
@@ -31,7 +32,9 @@ import org.apache.spark.ml.knn.KNN
 
 //FIXME - turn classes back to Ints instead of Doubles
 
+
 object Classifier {
+  var results = ""
 
   // FIXME - define this in another file?
   type NearestClassResult = (Int, Array[Int]) //class, closest classes
@@ -54,7 +57,7 @@ object Classifier {
   }
 
 
-  def runClassifier(spark: SparkSession, df: DataFrame, samplingMethod: String) {
+  def runClassifier(spark: SparkSession, df: DataFrame, samplingMethod: String): String = {
     import spark.implicits._
     //df.show()
 
@@ -92,7 +95,7 @@ object Classifier {
 
     println("** train data **")
     trainDataSampled.show()
-    trainDataSampled.printSchema()
+    //trainDataSampled.printSchema()
 
     //testData.show()
 
@@ -159,6 +162,7 @@ object Classifier {
      println(sensitiviyCount + " " + sensitiviySum)
      println("AvAcc: " + sensitiviySum / sensitiviyCount)
 
+     "Sampling:\t" + samplingMethod + "\t" + sensitiviySum / sensitiviyCount
 
 
 
@@ -527,6 +531,7 @@ object Classifier {
   }
 
   def sampleData(spark: SparkSession, df: DataFrame, samplingMethod: String): DataFrame = {
+    println("~~~~~ sampleData ~~~~~")
     val d = df.select("label").distinct()
     val presentClasses = d.select("label").rdd.map(r => r(0)).collect()
 
@@ -553,13 +558,12 @@ object Classifier {
         case _ => currentCase
       }
       dfs = dfs :+ filteredDF2
-      println(filteredDF2.count())
+      //println(filteredDF2.count())
     }
 
     //println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
     val all = dfs.reduce(_ union  _)
     println("^^^^^^ count: " + all.count())
-
     //println("ALL count: " + all.count())
     convertFeaturesToVector(all)
 
@@ -675,7 +679,7 @@ object Classifier {
     df.withColumn("features", convertToVector($"features"))
   }
 
-  def runClassifierMinorityType(train: DataFrame, test: DataFrame) {
+  def runClassifierMinorityType(train: DataFrame, test: DataFrame): Double = {
     val spark = train.sparkSession
     import spark.implicits._
     //train.show()
@@ -751,11 +755,12 @@ object Classifier {
     }
     //println(sensitiviyCount + " " + sensitiviySum)
     println("AvAcc: " + sensitiviySum / sensitiviyCount)
+    sensitiviySum / sensitiviyCount
   }
 
   import edu.vcu.sleeman.MinorityType.getMinorityTypeStatus
 
-  def runNaiveNN(df: DataFrame, samplingMethod: String, minorityTypes: Array[Array[String]], rw: Array[String]): Unit = {
+  def runNaiveNN(df: DataFrame, samplingMethod: String, minorityTypes: Array[Array[String]], rw: Array[String]): String = {
     //println("Sampled Counts")
     //val aggregatedCounts = df.groupBy("label").agg(count("label")) //FIXME
     //aggregatedCounts.show()
@@ -793,12 +798,17 @@ object Classifier {
     }
   println("^^^^^^^^^^ minority DF")
     minorityDF.show()
+    getSparkNNMinorityReport(minorityDF)
 
+    var currentResults = ""
     for(currentTypes<-minorityTypes) {
       print("***** ")
+      var currentTypesString = "["
       for(item<-currentTypes) {
         print(item + " ")
+        currentTypesString += item + " "
       }
+      currentTypesString += "]"
       println("***")
       println(minorityDF.count())
       //println(currentMinorityTypes.toString())
@@ -812,11 +822,12 @@ object Classifier {
       //!!!    println("Test Data Count: " + testData.count())
       //!!!    getCountsByClass(testData.sparkSession,"label", testData).show()
 
-      runClassifierMinorityType(trainDataResampled, testData)
+      currentResults += " Sampling:\t" + samplingMethod + "\tMinority Type:\t" + currentTypesString + "\t"
+
+      currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
 
     }
-
-
+    currentResults
 
     //for(i<-0 to 14) {
     /*for(i<-0 to 0) {
@@ -866,21 +877,24 @@ object Classifier {
   type WI = (mutable.WrappedArray[Any], Int)
 
 
-  def runSparkNN(preppedDataUpdated: DataFrame): Unit = {
-    val spark = preppedDataUpdated.sparkSession
+  def runSparkNN(df: DataFrame, samplingMethod: String, minorityTypes: Array[Array[String]]): String = {
+    val spark = df.sparkSession
     import spark.implicits._
 
-    val inputCols = preppedDataUpdated.columns.filter(_ != "label")
+    val Array(trainData, testData) = df.randomSplit(Array(0.8, 0.2), 42L)
+    println(trainData.count() + " " + testData.count())
 
-    val assembler = new VectorAssembler().
+    val inputCols = testData.columns.filter(_ != "label")
+
+   /* val assembler = new VectorAssembler().
       setInputCols(inputCols).
       setOutputCol("features")
+*/
+    //val assembledTestData = assembler.transform(testData).select("features")
 
-    //val assembledTestData = assembler.transform(preppedDataUpdated).select("features")
+    val train_index: RDD[(Long, Row)] = trainData.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
 
-    val train_index: RDD[(Long, Row)] = preppedDataUpdated.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
-
-    train_index.take(5).foreach(println)
+    //train_index.take(5).foreach(println)
 
 
     val train_data = train_index.map({ r =>
@@ -898,6 +912,7 @@ object Classifier {
       .setTopTreeSize(dataRows.count().toInt / 10)
       .setTopTreeLeafSize(leafSize)
       .setSubTreeLeafSize(leafSize)
+      .setSeed(42L)
       .setAuxCols(Array("label", "features"))
 
     val dfRenamed = dataRows.toDF()
@@ -905,36 +920,50 @@ object Classifier {
       .withColumnRenamed("_2", "label")
       .withColumnRenamed("_3", "features")
 
-
     dfRenamed.show()
     val dfConverted = convertFeaturesToVector(dfRenamed)
     val model = knn.fit2(dfConverted).setK(6)
 
     val results: DataFrame = model.transform2(dfConverted)
-    results.show()
+    //results.show()
     val collected: Array[Row] = results.select( "neighbors", "index", "features").collect()
-    collected.take(1).foreach(println)
+    //collected.take(1).foreach(println)
     //val minorityValueDF: Array[(Int, String)] = collected.map(x=>x(0)).map(x=>x.asInstanceOf[mutable.WrappedArray[Any]]).map(x=>getSparkNNMinorityResult(x))
-    val minorityValueDF: Array[(Int, Int, String, Vector)] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString().toInt, x._3))
+    val minorityValueDF: Array[(Int, Int, String, mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString().toInt, x._3))
 
-    val GGG = spark.sparkContext.parallelize(minorityValueDF).toDF()
+    val minorityDF = spark.sparkContext.parallelize(minorityValueDF).toDF()
       .withColumnRenamed("_1","index")
       .withColumnRenamed("_2","label")
       .withColumnRenamed("_3","minority_type")
-      .withColumnRenamed("_4","features")
-   GGG.show()
-    GGG.printSchema()
-   getSparkNNMinorityReport(GGG)
+      .withColumnRenamed("_4","features")//.sort("index")
+    //println(minorityDF.take(1)(0).toString())
+    println("^^^^^^^^^^ minority DF")
+    minorityDF.show()
+    minorityDF.printSchema()
+   getSparkNNMinorityReport(minorityDF)
 
 
-
+    var currentResults = ""
     //FIXME
+    for(currentTypes<-minorityTypes) {
+      print("***** ")
+      var currentTypesString = "["
+      for (item <- currentTypes) {
+        print(item + " ")
+        currentTypesString += item + " "
+      }
+      currentTypesString += "]"
+      println("***")
+      val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, currentTypes, samplingMethod)
+      currentResults += "Sampling:\t" + samplingMethod + "\tMinority Type:\t" + currentTypesString + "\t"
+      currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
 
-
+    }
+    currentResults
   }
 
   //def getSparkNNMinorityResult(wrappedArray: mutable.WrappedArray[Any]): (Int, String) = {
-  def getSparkNNMinorityResult(x: mutable.WrappedArray[Any], index: Int, features: Any): (Int, Int, String, Vector) = {
+  def getSparkNNMinorityResult(x: mutable.WrappedArray[Any], index: Int, features: Any): (Int, Int, String, mutable.WrappedArray[Double]) = {
 
   // val x: (mutable.WrappedArray[Any], Int) = r
     //val (x, y) = r
@@ -956,7 +985,9 @@ object Classifier {
         currentCount += 1
       }
     }
-    (index, currentLabel, getMinorityClassLabel(currentCount), features.asInstanceOf[Vector])
+    val currentArray = features.toString().substring(1, features.toString().length-1).split(",").map(x=>x.toDouble)
+    //println(currentArray)
+    (index, currentLabel, getMinorityClassLabel(currentCount), currentArray)//features.toString().asInstanceOf[mutable.WrappedArray[Double]])
   }
 
   def main(args: Array[String]) {
@@ -994,44 +1025,57 @@ object Classifier {
 
     val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
 
-    //val samplingMethods = Array("None", "undersample", "oversample", "smote")
-    val samplingMethods = Array("None")
+
+    var minorityTypes = Array[Array[String]]()
+
+    for(i<-0 to 0) {
+      var currentMinorityTypes = Array[String]()
+      if (0 != (i & 1)) false else {
+        currentMinorityTypes = currentMinorityTypes :+ "safe"
+      }
+      if (0 != (i & 2)) false else {
+        currentMinorityTypes = currentMinorityTypes :+ "borderline"
+      }
+      if (0 != (i & 4)) false else {
+        currentMinorityTypes = currentMinorityTypes :+ "rare"
+      }
+      if (0 != (i & 8)) false else {
+        currentMinorityTypes = currentMinorityTypes :+ "outlier"
+      }
+      minorityTypes = minorityTypes :+ currentMinorityTypes
+    }
+
+
+    val samplingMethods = Array("None", "undersample", "oversample", "smote")
+    //val samplingMethods = Array("None")
     if(mode == "standard") {
+      val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/standard.txt"))
       println("=================== Standard ====================")
       for (method <- samplingMethods) {
         println("=================== " + method + " ====================")
-        runClassifier(spark, preppedDataUpdated, method)
+        writer.write(runClassifier(spark, preppedDataUpdated, method)+ "\n")
       }
+      writer.close()
     }
     else if(mode == "naiveNN") {
+      val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/naiveNN.txt"))
+
       println("=================== Minority Class ====================")
-
-      var minorityTypes = Array[Array[String]]()
-
-      for(i<-0 to 0) {
-        var currentMinorityTypes = Array[String]()
-        if (0 != (i & 1)) false else {
-          currentMinorityTypes = currentMinorityTypes :+ "safe"
-        }
-        if (0 != (i & 2)) false else {
-          currentMinorityTypes = currentMinorityTypes :+ "borderline"
-        }
-        if (0 != (i & 4)) false else {
-          currentMinorityTypes = currentMinorityTypes :+ "rare"
-        }
-        if (0 != (i & 8)) false else {
-          currentMinorityTypes = currentMinorityTypes :+ "outlier"
-        }
-        minorityTypes = minorityTypes :+ currentMinorityTypes
-      }
-
       for (method <- samplingMethods) {
         println("=================== " + method + " ====================")
-          runNaiveNN(preppedDataUpdated, method, minorityTypes, rw)
+          writer.write(runNaiveNN(preppedDataUpdated, method, minorityTypes, rw))
       }
+      writer.close()
+
     }
     else if(mode == "sparkNN") {
-      runSparkNN(preppedDataUpdated)
+      val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/sparkNN.txt"))
+
+      for (method <- samplingMethods) {
+        writer.write(runSparkNN(preppedDataUpdated, method, minorityTypes))
+      }
+      writer.close()
+
     }
     else {
       println("ERROR: running mode " + mode + " is not valid [standard, naiveNN, sparkNN")
