@@ -162,7 +162,7 @@ object Classifier {
      println(sensitiviyCount + " " + sensitiviySum)
      println("AvAcc: " + sensitiviySum / sensitiviyCount)
 
-     "Sampling:\t" + samplingMethod + "\t" + sensitiviySum / sensitiviyCount
+     samplingMethod + ",," + sensitiviySum / sensitiviyCount
 
 
 
@@ -808,6 +808,7 @@ object Classifier {
         print(item + " ")
         currentTypesString += item + " "
       }
+      currentTypesString = currentTypesString.substring(0, currentTypesString.length()-1)
       currentTypesString += "]"
       println("***")
       println(minorityDF.count())
@@ -822,8 +823,7 @@ object Classifier {
       //!!!    println("Test Data Count: " + testData.count())
       //!!!    getCountsByClass(testData.sparkSession,"label", testData).show()
 
-      currentResults += " Sampling:\t" + samplingMethod + "\tMinority Type:\t" + currentTypesString + "\t"
-
+      currentResults += samplingMethod + "," + currentTypesString + ","
       currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
 
     }
@@ -952,10 +952,12 @@ object Classifier {
         print(item + " ")
         currentTypesString += item + " "
       }
+      currentTypesString = currentTypesString.substring(0, currentTypesString.length()-1)
+
       currentTypesString += "]"
       println("***")
       val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, currentTypes, samplingMethod)
-      currentResults += "Sampling:\t" + samplingMethod + "\tMinority Type:\t" + currentTypesString + "\t"
+      currentResults += samplingMethod + "," + currentTypesString + ","
       currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
 
     }
@@ -1028,7 +1030,7 @@ object Classifier {
 
     var minorityTypes = Array[Array[String]]()
 
-    for(i<-0 to 0) {
+    for(i<-0 to 14) {
       var currentMinorityTypes = Array[String]()
       if (0 != (i & 1)) false else {
         currentMinorityTypes = currentMinorityTypes :+ "safe"
@@ -1046,10 +1048,11 @@ object Classifier {
     }
 
 
-    val samplingMethods = Array("None", "undersample", "oversample", "smote")
+    val samplingMethods = Array("none")//, "undersample", "oversample", "smote")
     //val samplingMethods = Array("None")
     if(mode == "standard") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/standard.txt"))
+      writer.write("sampling,minorityTypes,AvAcc\n")
       println("=================== Standard ====================")
       for (method <- samplingMethods) {
         println("=================== " + method + " ====================")
@@ -1059,7 +1062,7 @@ object Classifier {
     }
     else if(mode == "naiveNN") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/naiveNN.txt"))
-
+      writer.write("sampling,minorityTypes,AvAcc\n")
       println("=================== Minority Class ====================")
       for (method <- samplingMethods) {
         println("=================== " + method + " ====================")
@@ -1070,7 +1073,7 @@ object Classifier {
     }
     else if(mode == "sparkNN") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/sparkNN.txt"))
-
+      writer.write("sampling,minorityTypes,AvAcc\n")
       for (method <- samplingMethods) {
         writer.write(runSparkNN(preppedDataUpdated, method, minorityTypes))
       }
