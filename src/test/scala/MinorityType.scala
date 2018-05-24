@@ -24,7 +24,6 @@ import scala.collection.mutable
 import scala.reflect.ClassTag
 
 
-
 object MinorityType {
   type Element = (Long, (Int, Array[Double]))
   type ElementNI = (Int, Array[Double])
@@ -93,7 +92,6 @@ object MinorityType {
 
 
   def getMinorityTypeStatus(df: DataFrame): DataFrame = {
-
     val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
 
     val train_data = train_index.map({ r =>
@@ -104,41 +102,16 @@ object MinorityType {
       (r._1, (cls, rowMapped.reverse))
     })
 
-    //train_data.take(10).foreach(println)
-
     val train_data_collected: Array[(Long, (Int, Array[Double]))] = train_data.collect()
 
     //FIXME - are the index values needed or will the order always be in the right direction?
     val minorityData: RDD[(Long, Int, String, Array[Double])] = train_data.map(x => getDistances(x, train_data_collected)).cache() //FIXME try not caching this?
-
-    //println("****************************")
-    //minorityData.map(x=>x._4.map(y=>y+10000)).take(1)(0).foreach(println)
     //FIXME -return indicies per class/minority type
 
     val sqlContext = df.sqlContext
     import sqlContext.implicits._
-    val spark = sqlContext.sparkSession
 
     val results: DataFrame = minorityData.toDF()
-
-    /*val foo: Row = results.take(1)(0)
-    val bar = foo.toSeq.map(x=>x.toString())
-    val bar2 = foo.toSeq
-    println(bar2(0).toString().toInt, bar2(1).toString().toInt, bar2(2).toString())
-
-    val x = bar2(3).asInstanceOf[mutable.WrappedArray[Double]].map(x=>x+1000)
-    x.foreach(println)
-*/
-
-    //val xxx = results.select("_4").rdd.map(row =>row(3).asInstanceOf[mutable.WrappedArray[String]].toSeq)//.map(x=>x.toSeq.apply(0)))
-//FIXME - split string instread
-    //val bar = results.collect()
-    //val dddd: Array[(Any, Any, Any, Seq[Char])] = bar.map(x=>(x(0), x(1), x(2), x(3).toString().toSeq))
-
-    //dddd.foreach(println)
-    //results.printSchema()
-    //results.show()
-
 
     results.withColumnRenamed("_1", "index")
       .withColumnRenamed("_2", "label")
