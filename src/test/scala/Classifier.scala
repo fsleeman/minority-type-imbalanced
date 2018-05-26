@@ -16,6 +16,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.DataFrame
 import java.io.PrintWriter
 import java.io.File
+
 import scala.util.Random
 import org.apache.log4j._
 import org.apache.spark.ml.param.Param
@@ -27,6 +28,7 @@ import scala.collection.mutable
 import scala.reflect.ClassTag
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.knn.KNN
+import org.dmg.pmml.ConfusionMatrix
 
 //FIXME - turn classes back to Ints instead of Doubles
 
@@ -54,6 +56,75 @@ object Classifier {
     filteredDF
   }
 
+  def maxValue(a: Double, b:Double): Double ={
+    if(a >= b) return a
+    else return b
+  }
+
+  def calculateClassifierResults(distinctClasses: DataFrame, confusionMatrix: DataFrame): String ={
+    import distinctClasses.sparkSession.implicits._
+    val maxLabel: Int = distinctClasses.collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
+    val numberOfClasses = distinctClasses.count()
+    val testLabels = distinctClasses.map(_.getAs[Double]("label")).map(x => x.toInt).collect().sorted
+
+    val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
+    val totalCount = rows.map(x => x.tail.map(y => y.toDouble.toInt).sum).sum
+    val classMaps = testLabels.zipWithIndex.map(x => (x._2, x._1))
+
+    var AvAvg = 0.0
+    var MAvG = 1.0
+    var RecM = 0.0
+    var PrecM = 0.0
+    var Precu = 0.0
+    var Recu = 0.0
+    var FbM = 0.0
+    var Fbu = 0.0
+    var AvFb = 0.0
+    var CBA = 0.0
+
+    var tSum = 0.0
+    var pSum = 0.0
+    var tpSum = 0.0
+    val beta = 0.5 // User specified
+
+    //FIXME - could be made parallel w/udf
+    for (clsIndex <- 1 to maxLabel) {
+      val colSum = rows.map(x => x(clsIndex + 1).toInt).sum
+      val rowValueSum = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail.map(x => x.toDouble.toInt).sum else 0
+      val tp: Double = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
+      val fn: Double = colSum - tp
+      val fp: Double = rowValueSum - tp
+      val tn: Double = totalCount - tp - fp - fn
+
+      val recall = tp / (tp + fn)
+      val precision = tp / (tp + fp)
+
+      AvAvg += ((tp + tn) / (tp + tn + fp + fn))
+      MAvG *= recall
+      RecM += recall
+      PrecM += precision
+      AvFb += (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall))
+      CBA += (tp / maxValue(colSum, rowValueSum))
+
+      // for Recu and Precu
+      tpSum += tp
+      tSum += (tp + fn)
+      pSum += (tp + fp)
+    }
+
+    AvAvg /= numberOfClasses.toDouble
+    MAvG = Math.pow((MAvG), (1/numberOfClasses.toDouble))
+    RecM /= numberOfClasses
+    PrecM /= numberOfClasses
+    Recu = tpSum / tSum
+    Precu = tpSum / pSum
+    FbM = ((1 + Math.pow(beta, 2.0)) * PrecM * RecM) / (Math.pow(beta, 2.0) * PrecM + RecM)
+    Fbu = ((1 + Math.pow(beta, 2.0)) * Precu * Recu) / (Math.pow(beta, 2.0) * Precu + Recu)
+    AvFb /= numberOfClasses.toDouble
+    CBA /= numberOfClasses.toDouble
+
+    AvAvg  + "," + MAvG + "," + RecM +"," + PrecM + "," + Recu + "," + Precu + "," + FbM + "," + Fbu + "," + AvFb + "," + CBA
+  }
 
   def runClassifier(spark: SparkSession, df: DataFrame, samplingMethod: String): String = {
     import spark.implicits._
@@ -77,6 +148,11 @@ object Classifier {
 
     val trainDataSampled = sampleData(spark, results, samplingMethod)
     //getCountsByClass(spark, "label", trainDataSampled)
+
+
+    //val distinctClasses: Array[Row] = testData.select("label").distinct().collect()
+
+
 
     val maxLabel: Int = testData.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
     val numberOfClasses = testData.select("label").distinct().count()
@@ -120,12 +196,15 @@ object Classifier {
        orderBy("label")
 
     confusionMatrix.show()
+
+    samplingMethod + ",," + calculateClassifierResults(testData.select("label").distinct(), confusionMatrix)
+
      //precision=TP / (TP + FP)
      //sensitivity = TP / (TP + FN)
      //specificity = TN / (FP + TN)
      //F-score = 2*TP /(2*TP + FP + FN)
 
-     val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
+     /*val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
      val totalCount = rows.map(x => x.tail.map(y => y.toDouble.toInt).sum).sum
      val classMaps = testLabels.zipWithIndex.map(x => (x._2, x._1))
 
@@ -160,8 +239,6 @@ object Classifier {
        val fp: Double = rowValueSum - tp
        val tn: Double = totalCount - tp - fp - fn
 
-       println("colSum: " + colSum + " rowSum: " + rowValueSum)
-
        val sensitivity = tp / (tp + fn).toFloat
        if (tp + fn > 0) {
          sensitiviySum += sensitivity
@@ -170,13 +247,13 @@ object Classifier {
        val recall = tp / (tp + fn)
        val precision = tp / (tp + fp)
 
-       println(clsIndex + " tp: " + tp + " tn: " + tn + " fp: " + fp + " fn: " + fn)
+       //println(clsIndex + " tp: " + tp + " tn: " + tn + " fp: " + fp + " fn: " + fn)
        //AvAvg
        AvAvg += ((tp + tn) / (tp + tn + fp + fn))
 
        //MAvG
        MAvG *= recall
-       println("recall: " + recall + " precision: " + precision + "Avg: " + ((tp + tn) / (tp + tn + fp + fn)))
+       //println("recall: " + recall + " precision: " + precision + "Avg: " + ((tp + tn) / (tp + tn + fp + fn)))
        //RecM
        RecM += recall
        //PrecM
@@ -187,7 +264,7 @@ object Classifier {
        pSum += (tp + fp)
        //AvFb
        AvFb += (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall))
-       println("AvFb: " + (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall)))
+       //println("AvFb: " + (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall)))
        //CBA
 
        def maxValue(a: Double, b:Double): Double ={
@@ -201,38 +278,38 @@ object Classifier {
    // println(tpSum + " " + tSum + " " + pSum)
    //  println(sensitiviyCount + " " + sensitiviySum)
    //  println("AvAcc: " + sensitiviySum / sensitiviyCount)
-    println("numberOfClasses: " + numberOfClasses)
+    //println("numberOfClasses: " + numberOfClasses)
     //AvAvg
     AvAvg /= numberOfClasses.toDouble
-    println("AvAvg:" + AvAvg)
+    //println("AvAvg:" + AvAvg)
     //MAvG
     MAvG = Math.pow((MAvG), (1/numberOfClasses.toDouble))
-    println("MAvG: " + MAvG)
+    //println("MAvG: " + MAvG)
     //RecM
     RecM /= numberOfClasses
-    println("RecM:" + RecM)
+    //println("RecM:" + RecM)
     //PrecM
     PrecM /= numberOfClasses
-    println("PrecM: " + PrecM)
+    //println("PrecM: " + PrecM)
     //Recu
     Recu = tpSum / tSum
-    println("Recu: " + Recu)
+    //println("Recu: " + Recu)
     //Precu
     Precu = tpSum / pSum
-    println("Precu: " + Precu)
+    //println("Precu: " + Precu)
     //FbM
     FbM = ((1 + Math.pow(beta, 2.0)) * PrecM * RecM) / (Math.pow(beta, 2.0) * PrecM + RecM)
-    println("FbM: " + FbM)
+    //println("FbM: " + FbM)
     //Fbu
     Fbu = ((1 + Math.pow(beta, 2.0)) * Precu * Recu) / (Math.pow(beta, 2.0) * Precu + Recu)
-    println("Fbu: " + Fbu)
+    //println("Fbu: " + Fbu)
     //AvFb
     AvFb /= numberOfClasses.toDouble
-    println("AvFb: " + AvFb)
+    //println("AvFb: " + AvFb)
     //CBA
     CBA /= numberOfClasses.toDouble
-    println("CBA: " + CBA)
-    samplingMethod + ",," + AvAvg  + "," + MAvG + "," + RecM +"," + PrecM + "," + Recu + "," + Precu + "," + FbM + "," + Fbu + "," + AvFb + "," + CBA
+    //println("CBA: " + CBA)
+    samplingMethod + ",," + AvAvg  + "," + MAvG + "," + RecM +"," + PrecM + "," + Recu + "," + Precu + "," + FbM + "," + Fbu + "," + AvFb + "," + CBA*/
   }
 
   // Map number of nearest same-class neighbors to minority class label
@@ -504,7 +581,7 @@ object Classifier {
     df.withColumn("features", convertToVector($"features"))
   }
 
-  def runClassifierMinorityType(train: DataFrame, test: DataFrame): Double = {
+  def runClassifierMinorityType(train: DataFrame, test: DataFrame): String = {
     val spark = train.sparkSession
     import spark.implicits._
     val maxLabel: Int = test.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
@@ -541,6 +618,9 @@ object Classifier {
     //specificity = TN / (FP + TN)
     //F-score = 2*TP /(2*TP + FP + FN)
 
+
+    calculateClassifierResults(test.select("label").distinct(), confusionMatrix)
+/*
     val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
     val totalCount = rows.map(x => x.tail.map(y => y.toDouble.toInt).sum).sum
 
@@ -566,7 +646,7 @@ object Classifier {
 
     }
     println("AvAcc: " + sensitiviySum / sensitiviyCount)
-    sensitiviySum / sensitiviyCount
+    sensitiviySum / sensitiviyCount*/
   }
 
   import edu.vcu.sleeman.MinorityType.getMinorityTypeStatus
@@ -786,7 +866,7 @@ object Classifier {
     if(mode == "standard") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/standard.txt"))
       //writer.write("sampling,minorityTypes,AvAcc\n")
-      writer.write("sampling,minorityTypes,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb\n")
+      writer.write("sampling,minorityTypes,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb,CBA\n")
       println("=================== Standard ====================")
       for (method <- samplingMethods) {
         println("=================== " + method + " ====================")
@@ -796,7 +876,7 @@ object Classifier {
     }
     else if(mode == "naiveNN") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/naiveNN.txt"))
-      writer.write("sampling,minorityTypes,AvAcc\n")
+      writer.write("sampling,minorityTypes,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb,CBA\n")
       println("=================== Minority Class ====================")
       for (method <- samplingMethods) {
         println("=================== " + method + " ====================")
@@ -806,7 +886,7 @@ object Classifier {
     }
     else if(mode == "sparkNN") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/sparkNN.txt"))
-      writer.write("sampling,minorityTypes,AvAcc\n")
+      writer.write("sampling,minorityTypes,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb,CBA\n")
       for (method <- samplingMethods) {
         writer.write(runSparkNN(preppedDataUpdated, method, minorityTypes))
       }

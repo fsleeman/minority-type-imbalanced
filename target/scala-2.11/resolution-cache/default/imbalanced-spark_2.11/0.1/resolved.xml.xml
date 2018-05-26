@@ -4,7 +4,7 @@
 		module="imbalanced-spark_2.11"
 		revision="0.1"
 		status="integration"
-		publication="20180428090150"
+		publication="20180524193739"
 	>
 		<description>
 		imbalanced-spark
