@@ -79,6 +79,7 @@ object Classifier {
     //getCountsByClass(spark, "label", trainDataSampled)
 
     val maxLabel: Int = testData.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
+    val numberOfClasses = testData.select("label").distinct().count()
 
     println("test counts")
     getCountsByClass(spark, "label", testData).show()
@@ -118,8 +119,8 @@ object Classifier {
        na.fill(0.0).
        orderBy("label")
 
-     //predictions.show()
-     // precision=TP / (TP + FP)
+    confusionMatrix.show()
+     //precision=TP / (TP + FP)
      //sensitivity = TP / (TP + FN)
      //specificity = TN / (FP + TN)
      //F-score = 2*TP /(2*TP + FP + FN)
@@ -130,26 +131,108 @@ object Classifier {
 
      var sensitiviySum = 0.0
      var sensitiviyCount = 0
+
+    var AvAvg = 0.0
+    var MAvG = 1.0
+    var RecM = 0.0
+    var PrecM = 0.0
+
+    var tSum = 0.0
+    var pSum = 0.0
+    var tpSum = 0.0
+
+    var Precu = 0.0
+    var Recu = 0.0
+
+    val beta = 0.5 // User specified
+    var FbM = 0.0
+    var Fbu = 0.0
+
+    var AvFb = 0.0
+    var CBA = 0.0
+
      //FIXME - could be made parallel w/udf
-     for (clsIndex <- 0 to maxLabel) {
+     for (clsIndex <- 1 to maxLabel) {
        val colSum = rows.map(x => x(clsIndex + 1).toInt).sum
        val rowValueSum = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail.map(x => x.toDouble.toInt).sum else 0
-       val tp = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
-       val fn = colSum - tp
-       val fp = rowValueSum - tp
-       val tn = totalCount - tp - fp - fn
+       val tp: Double = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
+       val fn: Double = colSum - tp
+       val fp: Double = rowValueSum - tp
+       val tn: Double = totalCount - tp - fp - fn
+
+       println("colSum: " + colSum + " rowSum: " + rowValueSum)
 
        val sensitivity = tp / (tp + fn).toFloat
        if (tp + fn > 0) {
          sensitiviySum += sensitivity
          sensitiviyCount += 1
        }
+       val recall = tp / (tp + fn)
+       val precision = tp / (tp + fp)
+
+       println(clsIndex + " tp: " + tp + " tn: " + tn + " fp: " + fp + " fn: " + fn)
+       //AvAvg
+       AvAvg += ((tp + tn) / (tp + tn + fp + fn))
+
+       //MAvG
+       MAvG *= recall
+       println("recall: " + recall + " precision: " + precision + "Avg: " + ((tp + tn) / (tp + tn + fp + fn)))
+       //RecM
+       RecM += recall
+       //PrecM
+       PrecM += precision
+       //Recu and Precu
+       tpSum += tp
+       tSum += (tp + fn)
+       pSum += (tp + fp)
+       //AvFb
+       AvFb += (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall))
+       println("AvFb: " + (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall)))
+       //CBA
+
+       def maxValue(a: Double, b:Double): Double ={
+        if(a >= b) return a
+        else return b
+       }
+
+      CBA += (tp / maxValue(colSum, rowValueSum))
 
      }
-     println(sensitiviyCount + " " + sensitiviySum)
-     println("AvAcc: " + sensitiviySum / sensitiviyCount)
-
-     samplingMethod + ",," + sensitiviySum / sensitiviyCount
+   // println(tpSum + " " + tSum + " " + pSum)
+   //  println(sensitiviyCount + " " + sensitiviySum)
+   //  println("AvAcc: " + sensitiviySum / sensitiviyCount)
+    println("numberOfClasses: " + numberOfClasses)
+    //AvAvg
+    AvAvg /= numberOfClasses.toDouble
+    println("AvAvg:" + AvAvg)
+    //MAvG
+    MAvG = Math.pow((MAvG), (1/numberOfClasses.toDouble))
+    println("MAvG: " + MAvG)
+    //RecM
+    RecM /= numberOfClasses
+    println("RecM:" + RecM)
+    //PrecM
+    PrecM /= numberOfClasses
+    println("PrecM: " + PrecM)
+    //Recu
+    Recu = tpSum / tSum
+    println("Recu: " + Recu)
+    //Precu
+    Precu = tpSum / pSum
+    println("Precu: " + Precu)
+    //FbM
+    FbM = ((1 + Math.pow(beta, 2.0)) * PrecM * RecM) / (Math.pow(beta, 2.0) * PrecM + RecM)
+    println("FbM: " + FbM)
+    //Fbu
+    Fbu = ((1 + Math.pow(beta, 2.0)) * Precu * Recu) / (Math.pow(beta, 2.0) * Precu + Recu)
+    println("Fbu: " + Fbu)
+    //AvFb
+    AvFb /= numberOfClasses.toDouble
+    println("AvFb: " + AvFb)
+    //CBA
+    CBA /= numberOfClasses.toDouble
+    println("CBA: " + CBA)
+    samplingMethod + ",," + AvAvg  + "," + MAvG + "," + RecM +"," + PrecM + "," + Recu + "," + Precu + "," + FbM + "," + Fbu + "," + AvFb + "," + CBA
   }
 
   // Map number of nearest same-class neighbors to minority class label
@@ -594,9 +677,9 @@ object Classifier {
 
     dfRenamed.show()
     val dfConverted = convertFeaturesToVector(dfRenamed)
-    val model = knn.fit2(dfConverted).setK(6)
+    val model = knn.fit(dfConverted).setK(6)
 
-    val results: DataFrame = model.transform2(dfConverted)
+    val results: DataFrame = model.transform(dfConverted)
     val collected: Array[Row] = results.select( "neighbors", "index", "features").collect()
      val minorityValueDF: Array[(Int, Int, String, mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString().toInt, x._3))
 
@@ -702,11 +785,12 @@ object Classifier {
     val samplingMethods = Array("none")//, "undersample", "oversample", "smote")
     if(mode == "standard") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/standard.txt"))
-      writer.write("sampling,minorityTypes,AvAcc\n")
+      //writer.write("sampling,minorityTypes,AvAcc\n")
+      writer.write("sampling,minorityTypes,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb\n")
       println("=================== Standard ====================")
       for (method <- samplingMethods) {
         println("=================== " + method + " ====================")
-        writer.write(runClassifier(spark, preppedDataUpdated, method)+ "\n")
+        writer.write(runClassifier(spark, preppedDataUpdated, method) + "\n")
       }
       writer.close()
     }
@@ -719,7 +803,6 @@ object Classifier {
           writer.write(runNaiveNN(preppedDataUpdated, method, minorityTypes, rw))
       }
       writer.close()
-
     }
     else if(mode == "sparkNN") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/sparkNN.txt"))
