@@ -29,6 +29,7 @@ import scala.reflect.ClassTag
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.knn.KNN
 import org.dmg.pmml.ConfusionMatrix
+import org.apache.spark.ml.feature.StandardScaler
 
 //FIXME - turn classes back to Ints instead of Doubles
 
@@ -146,8 +147,25 @@ object Classifier {
       .withColumnRenamed("_3", "minority_type")
       .withColumnRenamed("_4", "features")
 
+    println("~~~~~~~~~~~~~~~~~~!!!~~~~~~~~~~~~~~~~~~~")
+    val converted = convertFeaturesToVector(results)
+    import org.apache.spark.ml.feature.MinMaxScaler
+    val scaler = new MinMaxScaler()
+      .setInputCol("features")
+      .setOutputCol("scaledFeatures")
+
+    // Compute summary statistics and generate MinMaxScalerModel
+    val scalerModel = scaler.fit(converted)
+
+    // rescale each feature to range [min, max].
+    val scaledData = scalerModel.transform(converted)
+    println(s"Features scaled to range: [${scaler.getMin}, ${scaler.getMax}]")
+    scaledData.select("features", "scaledFeatures").show()
+    println("~~~~~~~~~~~~~~~~~~!!!~~~~~~~~~~~~~~~~~~~")
+
     val trainDataSampled = sampleData(spark, results, samplingMethod)
     //getCountsByClass(spark, "label", trainDataSampled)
+
 
 
     //val distinctClasses: Array[Row] = testData.select("label").distinct().collect()
@@ -203,113 +221,6 @@ object Classifier {
      //sensitivity = TP / (TP + FN)
      //specificity = TN / (FP + TN)
      //F-score = 2*TP /(2*TP + FP + FN)
-
-     /*val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
-     val totalCount = rows.map(x => x.tail.map(y => y.toDouble.toInt).sum).sum
-     val classMaps = testLabels.zipWithIndex.map(x => (x._2, x._1))
-
-     var sensitiviySum = 0.0
-     var sensitiviyCount = 0
-
-    var AvAvg = 0.0
-    var MAvG = 1.0
-    var RecM = 0.0
-    var PrecM = 0.0
-
-    var tSum = 0.0
-    var pSum = 0.0
-    var tpSum = 0.0
-
-    var Precu = 0.0
-    var Recu = 0.0
-
-    val beta = 0.5 // User specified
-    var FbM = 0.0
-    var Fbu = 0.0
-
-    var AvFb = 0.0
-    var CBA = 0.0
-
-     //FIXME - could be made parallel w/udf
-     for (clsIndex <- 1 to maxLabel) {
-       val colSum = rows.map(x => x(clsIndex + 1).toInt).sum
-       val rowValueSum = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail.map(x => x.toDouble.toInt).sum else 0
-       val tp: Double = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
-       val fn: Double = colSum - tp
-       val fp: Double = rowValueSum - tp
-       val tn: Double = totalCount - tp - fp - fn
-
-       val sensitivity = tp / (tp + fn).toFloat
-       if (tp + fn > 0) {
-         sensitiviySum += sensitivity
-         sensitiviyCount += 1
-       }
-       val recall = tp / (tp + fn)
-       val precision = tp / (tp + fp)
-
-       //println(clsIndex + " tp: " + tp + " tn: " + tn + " fp: " + fp + " fn: " + fn)
-       //AvAvg
-       AvAvg += ((tp + tn) / (tp + tn + fp + fn))
-
-       //MAvG
-       MAvG *= recall
-       //println("recall: " + recall + " precision: " + precision + "Avg: " + ((tp + tn) / (tp + tn + fp + fn)))
-       //RecM
-       RecM += recall
-       //PrecM
-       PrecM += precision
-       //Recu and Precu
-       tpSum += tp
-       tSum += (tp + fn)
-       pSum += (tp + fp)
-       //AvFb
-       AvFb += (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall))
-       //println("AvFb: " + (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall)))
-       //CBA
-
-       def maxValue(a: Double, b:Double): Double ={
-        if(a >= b) return a
-        else return b
-       }
-
-      CBA += (tp / maxValue(colSum, rowValueSum))
-
-     }
-   // println(tpSum + " " + tSum + " " + pSum)
-   //  println(sensitiviyCount + " " + sensitiviySum)
-   //  println("AvAcc: " + sensitiviySum / sensitiviyCount)
-    //println("numberOfClasses: " + numberOfClasses)
-    //AvAvg
-    AvAvg /= numberOfClasses.toDouble
-    //println("AvAvg:" + AvAvg)
-    //MAvG
-    MAvG = Math.pow((MAvG), (1/numberOfClasses.toDouble))
-    //println("MAvG: " + MAvG)
-    //RecM
-    RecM /= numberOfClasses
-    //println("RecM:" + RecM)
-    //PrecM
-    PrecM /= numberOfClasses
-    //println("PrecM: " + PrecM)
-    //Recu
-    Recu = tpSum / tSum
-    //println("Recu: " + Recu)
-    //Precu
-    Precu = tpSum / pSum
-    //println("Precu: " + Precu)
-    //FbM
-    FbM = ((1 + Math.pow(beta, 2.0)) * PrecM * RecM) / (Math.pow(beta, 2.0) * PrecM + RecM)
-    //println("FbM: " + FbM)
-    //Fbu
-    Fbu = ((1 + Math.pow(beta, 2.0)) * Precu * Recu) / (Math.pow(beta, 2.0) * Precu + Recu)
-    //println("Fbu: " + Fbu)
-    //AvFb
-    AvFb /= numberOfClasses.toDouble
-    //println("AvFb: " + AvFb)
-    //CBA
-    CBA /= numberOfClasses.toDouble
-    //println("CBA: " + CBA)
-    samplingMethod + ",," + AvAvg  + "," + MAvG + "," + RecM +"," + PrecM + "," + Recu + "," + Precu + "," + FbM + "," + Fbu + "," + AvFb + "," + CBA*/
   }
 
   // Map number of nearest same-class neighbors to minority class label
@@ -473,8 +384,38 @@ object Classifier {
       }
   }
 
+  def getDistance(a: Array[Double], b: Array[Double]): Double = {
+    val zipped = a.zip(b)
+    val result = zipped.map({ case (x, y) => (x - y) * (x - y) })
+    Math.sqrt(result.sum)
+  }
+
+  def getAverageDistance(x: Array[Double], array: Array[Array[Double]]): Double ={
+    array.map(y=>getDistance(x,y)).sum/(array.length-1)
+  }
+
+  def getAverageDistances(data:DataFrame): Double ={
+    import data.sparkSession.implicits._
+    val collectedData = data.select("features").collect().map(x=>x(0).asInstanceOf[mutable.WrappedArray[Double]].toArray)
+
+
+    val results: Dataset[Double] = data.select("features").map(x=>getAverageDistance(x(0).asInstanceOf[mutable.WrappedArray[Double]].toArray, collectedData))
+    results.show()
+    val averageDistance = results.agg(sum("value")).collect()(0)(0).asInstanceOf[Double]/collectedData.length
+
+
+   // collectedData.show()
+    println("SMOTE: " + averageDistance)
+    //averageDistance.show()
+    //collectedData(0).foreach(println)
+
+    0.0
+  }
+
   def smote(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
+
+    //getAverageDistances(df)
 
     var samples = ArrayBuffer[Row]() //FIXME - make this more parallel
     val currentCount = df.count()
@@ -491,7 +432,10 @@ object Classifier {
         val rand = Array(r, r, r, r, r)
         val sampled: Array[Row] = currentClassZipped.filter(x => (rand.contains(x._2))).map(x => x._1) //FIXME - issues not taking duplicates
         //FIXME - can we dump the index column?
-        val values = sampled.map(x=>x(3).asInstanceOf[mutable.WrappedArray[Double]].toArray)
+        val values: Array[Array[Double]] = sampled.map(x=>x(3).asInstanceOf[mutable.WrappedArray[Double]].toArray)
+
+        //val lessThanSTD = values.flatMap(x=> if() )
+
         val ddd = values.transpose.map(_.sum/values.length)
         val r2 = Row(0, cls, "",  ddd.toSeq)
         smoteSamples += r2
@@ -547,7 +491,9 @@ object Classifier {
     val smoteSampleCount = maxClassCount / 2
     var dfs: Array[DataFrame] = Array[DataFrame]()
 
-    for (l <- presentClasses) {
+    //for (l <- presentClasses) {
+    {
+      val l = 1
       val currentCase = df.filter(df("label") === l).toDF()
       val filteredDF2 = samplingMethod match {
         case "undersample" => underSample(spark, currentCase, underSampleCount)
@@ -861,8 +807,11 @@ object Classifier {
       minorityTypes = minorityTypes :+ currentMinorityTypes
     }
 
+    import org.apache.spark.sql.functions.{stddev_samp, stddev_pop}
+    //val meanValues = preppedDataUpdated.select(preppedDataUpdated.columns.map(mean(_)): _*).drop("avg(label)").collect()//.asInstanceOf[mutable.WrappedArray[Double]].toArray
+    val stdValues = preppedDataUpdated.select(preppedDataUpdated.columns.filter(x=>x!="label").map(stddev_pop): _*).show()
 
-    val samplingMethods = Array("none")//, "undersample", "oversample", "smote")
+    val samplingMethods = Array("None")//, "undersample", "oversample", "smote")
     if(mode == "standard") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/standard.txt"))
       //writer.write("sampling,minorityTypes,AvAcc\n")
@@ -899,4 +848,14 @@ object Classifier {
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
   }
+
+ /* def foo(x: String, meanValues: Array[Double]): Column = {
+
+    //Column(x)
+  }*/
+
+  def meanSquared(a: String): Double = {
+    0.0
+  }
+
 }
