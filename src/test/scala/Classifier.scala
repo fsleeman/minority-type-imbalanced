@@ -168,15 +168,12 @@ object Classifier {
     } else { converted }
 
     val Array(trainData, testData) = scaledData.randomSplit(Array(0.8, 0.2),42L)
+    println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+    trainData.printSchema()
 
     val trainDataSampled = sampleData(spark, trainData, samplingMethod)
     //getCountsByClass(spark, "label", trainDataSampled)
-
-
-
     //val distinctClasses: Array[Row] = testData.select("label").distinct().collect()
-
-
 
     val maxLabel: Int = testData.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
     //val numberOfClasses = testData.select("label").distinct().count()
@@ -418,9 +415,10 @@ object Classifier {
     0.0
   }
 
-  def smote(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
+  def smote(spark: SparkSession, df: DataFrame, numSamples: Int, cutoff: Double=0.0): DataFrame = {
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
 
+    //getAverageDistances(df)
     //getAverageDistances(df)
     println("************* @ smote")
 
@@ -455,13 +453,21 @@ object Classifier {
     else {
         // skip
     }
+
+    df.printSchema()
     samples = samples ++ smoteSamples
-    val currentArray: Array[Row] = df.rdd.collect()
+    val currentArray = df.rdd.map(x=>Row(x(0), x(1), x(2), x(3).asInstanceOf[DenseVector])).collect()
     samples = samples ++ currentArray
+
+    val convertToVector = udf((array: Seq[Double]) => {
+      Vectors.dense(array.map(_.toDouble).toArray)
+    })
+    //val xx = convertToVector(samples.take(1)(0)(3).asInstanceOf[mutable.WrappedArray[Double]])
+
     val foo = samples.map(x=>x.toSeq).map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString(), x(3).asInstanceOf[DenseVector]))//asInstanceOf[mutable.WrappedArray[Double]]))
 
-    val sqlContext = spark
-    import sqlContext.implicits._
+    //val sqlContext = spark
+    import df.sparkSession.implicits._
     val bar = spark.sparkContext.parallelize(foo).toDF()
 
     val bar2 = bar.withColumnRenamed("_1", "index")
@@ -487,12 +493,12 @@ object Classifier {
     rdd.toDF()
   }
 
-  def sampleData(spark: SparkSession, df: DataFrame, samplingMethod: String): DataFrame = {
+  def sampleData(spark: SparkSession, df: DataFrame, samplingMethod: String, cutoff: Double=0.0): DataFrame = {
     println("~~~~~ sampleData ~~~~~")
+    df.printSchema()
     getCountsByClass(spark, "label", df).show()
     val d = df.select("label").distinct()
     val presentClasses = d.select("label").rdd.map(r => r(0)).collect()
-
 
     val counts = getCountsByClass(spark, "label", df)
     val maxClassCount = counts.select("_2").agg(max("_2")).take(1)(0)(0).toString().toInt
@@ -509,6 +515,7 @@ object Classifier {
         case "undersample" => underSample(spark, currentCase, underSampleCount)
         case "oversample" => overSample(spark, currentCase, overSampleCount)
         case "smote" => smote(spark, currentCase, smoteSampleCount)
+        case "smotePlus" => smote(spark, currentCase, smoteSampleCount, cutoff)
         case _ => currentCase
       }
       dfs = dfs :+ filteredDF2
@@ -519,12 +526,12 @@ object Classifier {
     all
   }
 
-  def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String], samplingMethod: String): DataFrame = {
+  def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String], samplingMethod: String, cutoff: Double=0.0): DataFrame = {
     //FIXME - some could be zero if split is too small
     val pickedTypes = df.filter(x => (minorityTypes contains (x(2))))
 
     //FIXME - avoid passing spark as parameter?
-    val combinedDf = sampleData(spark, pickedTypes, samplingMethod)
+    val combinedDf = sampleData(spark, pickedTypes, samplingMethod, cutoff)
     combinedDf
   }
 
@@ -811,6 +818,7 @@ object Classifier {
 
     dfRenamed.show()
     val dfConverted = convertFeaturesToVector(dfRenamed)*/
+
     import df.sparkSession.implicits._
     val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
 
@@ -840,6 +848,9 @@ object Classifier {
     } else { converted }
 
     val Array(trainData, testData) = scaledData.randomSplit(Array(0.8, 0.2),42L)
+    println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
+    trainData.printSchema()
+
 
     val leafSize = 5
     val knn = new KNN()
@@ -848,11 +859,35 @@ object Classifier {
       .setSubTreeLeafSize(leafSize)
       .setSeed(42L)
       .setAuxCols(Array("label", "features"))
-    val model = knn.fit(trainData).setK(6)
+    val model = knn.fit(trainData).setK(6).setDistanceCol("distances")
     val results2: DataFrame = model.transform(trainData)
 
 
     val collected: Array[Row] = results2.select( "neighbors", "index", "features").collect()
+    println("Distances")
+    val distances = results2.select("distances")
+    distances.show()
+    val distancesCollected = distances.collect().map(x=> {
+      val dataRow = x.toString()
+      val temp = dataRow.substring(1,dataRow.length-2).split(",").tail.map(x=>x.toDouble)
+      temp
+    }).flatMap(x=>x)
+    //distancesCollected.take(1)(0).foreach(println)
+    println("length: " + distancesCollected.length)
+
+    val average = distancesCollected.sum/distancesCollected.length.toDouble
+
+    val count = distancesCollected.length
+    val mean = distancesCollected.sum / count
+    val devs = distancesCollected.map(score => (score - mean) * (score - mean))
+    val stddev = Math.sqrt(devs.sum / (count - 1))
+
+    println("mean: " + mean + " stddev:" + stddev)
+
+    println("cutoff: " + (mean + stddev))
+    val cutoff = mean + stddev
+
+    results2.show()
      val minorityValueDF: Array[(Int, Int, String, mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString().toInt, x._3))
 
     val minorityDF = df.sparkSession.sparkContext.parallelize(minorityValueDF).toDF()
@@ -872,10 +907,11 @@ object Classifier {
         currentTypesString = currentTypesString.substring(0, currentTypesString.length()-1)
 
         currentTypesString += "]"
-        val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, minorityDF, currentTypes, samplingMethod)
+        val trainDataResampled = minorityTypeResample(minorityDF.sparkSession, convertFeaturesToVector(minorityDF), currentTypes, samplingMethod, cutoff)
+        trainDataResampled.printSchema()
         currentResults += samplingMethod + "," + currentTypesString + ","
         //currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
-        currentResults += runClassifierMinorityType(convertFeaturesToVector(trainDataResampled), testData) + "\n"
+        currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
       }
       currentResults
 
@@ -958,7 +994,7 @@ object Classifier {
     //val meanValues = preppedDataUpdated.select(preppedDataUpdated.columns.map(mean(_)): _*).drop("avg(label)").collect()//.asInstanceOf[mutable.WrappedArray[Double]].toArray
     val stdValues = preppedDataUpdated.select(preppedDataUpdated.columns.filter(x=>x!="label").map(stddev_pop): _*).show()
 
-    val samplingMethods = Array("None")//, "undersample", "oversample", "smote")
+    val samplingMethods = Array("undersample")//, "undersample", "oversample", "smote")
     if(mode == "standard") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/standard.txt"))
       //writer.write("sampling,minorityTypes,AvAcc\n")
