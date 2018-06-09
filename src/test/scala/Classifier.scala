@@ -28,9 +28,13 @@ import scala.collection.mutable
 import scala.reflect.ClassTag
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.knn.KNN
+import org.apache.spark.mllib.knn.KNNUtils.fastSquaredDistance
 import org.dmg.pmml.ConfusionMatrix
 import org.apache.spark.ml.feature.StandardScaler
 import org.apache.spark.ml.feature.MinMaxScaler
+import org.apache.spark.ml.knn.KNN.VectorWithNorm
+import org.apache.spark.ml.clustering.KMeans
+
 //FIXME - turn classes back to Ints instead of Doubles
 
 
@@ -293,6 +297,34 @@ object Classifier {
     }
   }
 
+  def getSingleDistance(x: Array[Double], y: Array[Double]): Double = {
+    var distsance = 0.0
+    for(index<-0 to x.length-1) {
+      distsance += (x(index) -  y(index)) *(x(index) - y(index))
+
+    }
+    distsance
+  }
+
+  def getSmoteSample(data: Array[Array[Double]]): Unit = {
+    val convertToVector = udf((array: Seq[Double]) => {
+      Vectors.dense(array.map(_.toDouble).toArray)
+    })
+
+    val results = data.map(x=>Vectors.dense(x.map(_.toDouble).toArray))
+    //println("DISTANCE: " +  Math.sqrt(fastSquaredDistance(results(0), Vectors.norm(results(0), 2), results(1), Vectors.norm(results(1), 2))))
+    val foo = new VectorWithNorm(results(0))
+    val foo2 = new VectorWithNorm(results(1))
+    //println(fastSquaredDistance(foo.vector, foo.norm, foo2.vector, foo2.norm))
+    //println("***")
+    //println(foo.fastSquaredDistance(foo2))
+    //println(getSingleDistance(data(0), data(1)))
+
+    //fastSquaredDistance
+    //data.map(x=>data.map(y=>getSingleDistance(x, y)))
+  }
+
+
   def mapRow(currentRow: Array[Any]) = {
     val reverseRow = currentRow.reverse
     val cls = reverseRow.head.toString().toFloat.toInt
@@ -315,7 +347,7 @@ object Classifier {
     countResults.sortBy(x => x._1, true).collect().foreach(println);
 
     val classes = countResults.sortBy(x => x._1).map(x => x._1)
-    classes.foreach(println)
+    //classes.foreach(println)
 
     println("**************************************************************")
 
@@ -415,7 +447,7 @@ object Classifier {
     0.0
   }
 
-  def smote(spark: SparkSession, df: DataFrame, numSamples: Int, cutoff: Double=0.0): DataFrame = {
+  def smote(spark: SparkSession, df: DataFrame, numSamples: Int, sparkMeans: Boolean=false): DataFrame = {
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
 
     //getAverageDistances(df)
@@ -430,25 +462,132 @@ object Classifier {
 
     var smoteSamples = ArrayBuffer[Row]()
     if (currentCount < numSamples) {
+
+
+      /*****************************/
+      val leafSize = 5
+      val knn = new KNN()
+        .setTopTreeSize(df.count().toInt / 10)
+        .setTopTreeLeafSize(leafSize)
+        .setSubTreeLeafSize(leafSize)
+        .setSeed(42L)
+        .setAuxCols(Array("label", "features"))
+      println("count: " + df.count())
+      val model = knn.fit(df).setK(1000).setDistanceCol("distances")
+      println("k: " + model.getK)
+      val results2: DataFrame = model.transform(df).select("distances").repartition(1)
+
+      println("length: " + results2.take(1)(0)(0).asInstanceOf[mutable.WrappedArray[Double]].length)
+      println("value: " + results2.take(1)(0))
+
+     val ds = results2.collect().map(x=>x(0).asInstanceOf[mutable.WrappedArray[Double]].tail).flatMap(x=>x)
+
+      //println(df.take(10)(0).mkString(" "))
+      //println(df.take(10)(8).mkString(" "))
+
+      val vs = df.take(10)
+
+      println("New distance: " +  getSingleDistance(vs(0)(3).asInstanceOf[DenseVector].toArray, vs(8)(3).asInstanceOf[DenseVector].toArray))
+      println("New length: " + (vs(0)(3).asInstanceOf[DenseVector].toArray.length))
+      println(vs(0)(3).asInstanceOf[DenseVector].toArray.mkString(" "))
+      println(vs(8)(3).asInstanceOf[DenseVector].toArray.mkString(" "))
+
+      println("min: " + ds.min + " max: " +  ds.max)
+      //ds.sorted.reverse.take(10).foreach(println)
+      //ds.take(10).foreach(println)
+
+      //results2.show()
+      val count = ds.length.toDouble
+      val mean = ds.sum / count
+      val devs = ds.map(score => (score - mean) * (score - mean))
+      val stdDev = devs.sum / (count - 1)  //Math.sqrt(devs.sum / (count - 1))
+      println("mean: " + mean + " stddev:" + stdDev)
+      println("cutoff: " + (mean + stdDev))
+      val cutoff = mean + 2.0 * stdDev
+      /*****************************/
+
       val samplesToAdd = numSamples - currentCount
       val currentClassZipped = df.collect().zipWithIndex
 
-      for (s <- 1 to samplesToAdd.toInt) {
-        def r = scala.util.Random.nextInt(currentClassZipped.length)
 
-        val rand = Array(r, r, r, r, r)
-        val sampled: Array[Row] = currentClassZipped.filter(x => (rand.contains(x._2))).map(x => x._1) //FIXME - issues not taking duplicates
-        //FIXME - can we dump the index column?
-        val values = sampled.map(x=>x(3).asInstanceOf[DenseVector].toArray)//.asInstanceOf[mutable.WrappedArray[Double]].toArray)
+        if(sparkMeans) {
+          //FIXME - pick number of K
 
-        //val lessThanSTD = values.flatMap(x=> if() )
+          val kValue = 5
+          val kmeans = new KMeans().setK(kValue).setSeed(1L)
+          val model2 = kmeans.fit(df)
 
-        val ddd: Array[Double] = values.transpose.map(_.sum /values.length)
-        val r2 = Row(0, cls, "",  Vectors.dense(ddd.map(_.toDouble)))
-        //println(r2)
-        //FIXME - convert this to DenseVector
-        smoteSamples += r2
-      }
+          // Make predictions
+          val predictions = model2.transform(df).select("prediction", "index", "label", "minorityType", "features")
+          predictions.show()
+          val predictionsCollected: Seq[(Int, Long, Int, String)] = predictions.collect().map(x=>(x(0).toString().toInt, x(1).toString().toLong, x(2).toString().toInt, x(3).toString())).toSeq
+
+          for (s <- 1 to samplesToAdd.toInt) {
+            //to samplesToAdd.toInt)
+
+            //println("here")
+
+            //val l: Seq[(String, Int, Int, Int)] = List(("A", 1, 4, 8), ("A", 2, 5, 9), ("A", 3, 6, 4), ("B", 1, 4, 2), ("B", 2, 5,1), ("B", 3, 6,4))
+
+            val foo2= predictionsCollected.groupBy {_._1}/* map {
+              case (k, v) => (k, v map {
+                case (k, v1, v2, v3) => (v1, v2)
+              } unzip)
+            }*/
+            //foo2.foreach(println)
+
+
+            def clusterIndex = scala.util.Random.nextInt(kValue)
+            val indices: Seq[Long] = foo2(clusterIndex).map(x=>x._2)
+            //indices.foreach(println)
+            //println("length: " + indices.length)
+
+            def r = scala.util.Random.nextInt(indices.length)
+            val rand = Array(r, r, r, r, r)
+            //rand.foreach(println)
+            //foo2(0).map(x=>x._2).foreach(println)
+
+
+            val sampled: Array[Row] = currentClassZipped.filter(x => (rand.contains(x._2))).map(x => x._1) //FIXME - issues not taking duplicates
+
+            //sampled.foreach(println)
+
+            //FIXME - can we dump the index column?
+            val values: Array[Array[Double]] = sampled.map(x=>x(3).asInstanceOf[DenseVector].toArray)//.asInstanceOf[mutable.WrappedArray[Double]].toArray)
+            //println(values(0).mkString(" "))
+
+
+            //val lessThanSTD = values.flatMap(x=> if() )
+
+            val ddd: Array[Double] = values.transpose.map(_.sum /values.length)
+            val r2 = Row(0, cls, "",  Vectors.dense(ddd.map(_.toDouble)))
+            //println(r2)
+            //FIXME - convert this to DenseVector
+            smoteSamples += r2
+          }
+
+        }
+        else {
+          for (s <- 1 to samplesToAdd.toInt) {
+          def r = scala.util.Random.nextInt(currentClassZipped.length)
+
+            val rand = Array(r, r, r, r, r)
+            val sampled: Array[Row] = currentClassZipped.filter(x => (rand.contains(x._2))).map(x => x._1) //FIXME - issues not taking duplicates
+            //FIXME - can we dump the index column?
+            val values: Array[Array[Double]] = sampled.map(x=>x(3).asInstanceOf[DenseVector].toArray)//.asInstanceOf[mutable.WrappedArray[Double]].toArray)
+            println(values(0).mkString(" "))
+            //getSmoteSample(values)
+
+
+            //val lessThanSTD = values.flatMap(x=> if() )
+
+            val ddd: Array[Double] = values.transpose.map(_.sum /values.length)
+            val r2 = Row(0, cls, "",  Vectors.dense(ddd.map(_.toDouble)))
+            //println(r2)
+            //FIXME - convert this to DenseVector
+            smoteSamples += r2
+          }
+        }
     }
     else {
         // skip
@@ -514,8 +653,8 @@ object Classifier {
       val filteredDF2 = samplingMethod match {
         case "undersample" => underSample(spark, currentCase, underSampleCount)
         case "oversample" => overSample(spark, currentCase, overSampleCount)
-        case "smote" => smote(spark, currentCase, smoteSampleCount)
-        case "smotePlus" => smote(spark, currentCase, smoteSampleCount, cutoff)
+        case "smote" => smote(spark, currentCase, smoteSampleCount, false)
+        case "smotePlus" => smote(spark, currentCase, smoteSampleCount, true)
         case _ => currentCase
       }
       dfs = dfs :+ filteredDF2
@@ -677,7 +816,7 @@ object Classifier {
         .setOutputCol("scaledFeatures")
       val scalerModel = scaler.fit(converted)
       val scaledData: DataFrame = scalerModel.transform(converted)
-      scaledData
+      scaledData.drop("features").withColumnRenamed("scaledFeatures", "features")
     } else { converted }
 
     val Array(trainData, testData) = scaledData.randomSplit(Array(0.8, 0.2),42L)
@@ -844,7 +983,7 @@ object Classifier {
         .setOutputCol("scaledFeatures")
       val scalerModel = scaler.fit(converted)
       val scaledData: DataFrame = scalerModel.transform(converted)
-      scaledData
+      scaledData.drop("features").withColumnRenamed("scaledFeatures", "features")
     } else { converted }
 
     val Array(trainData, testData) = scaledData.randomSplit(Array(0.8, 0.2),42L)
@@ -876,16 +1015,15 @@ object Classifier {
     println("length: " + distancesCollected.length)
 
     val average = distancesCollected.sum/distancesCollected.length.toDouble
-
     val count = distancesCollected.length
     val mean = distancesCollected.sum / count
     val devs = distancesCollected.map(score => (score - mean) * (score - mean))
-    val stddev = Math.sqrt(devs.sum / (count - 1))
+    val stdDev = Math.sqrt(devs.sum / (count - 1))
 
-    println("mean: " + mean + " stddev:" + stddev)
+    println("mean: " + mean + " stddev:" + stdDev)
 
-    println("cutoff: " + (mean + stddev))
-    val cutoff = mean + stddev
+    println("cutoff: " + (mean + stdDev))
+    val cutoff = mean + stdDev
 
     results2.show()
      val minorityValueDF: Array[(Int, Int, String, mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString().toInt, x._3))
@@ -994,7 +1132,7 @@ object Classifier {
     //val meanValues = preppedDataUpdated.select(preppedDataUpdated.columns.map(mean(_)): _*).drop("avg(label)").collect()//.asInstanceOf[mutable.WrappedArray[Double]].toArray
     val stdValues = preppedDataUpdated.select(preppedDataUpdated.columns.filter(x=>x!="label").map(stddev_pop): _*).show()
 
-    val samplingMethods = Array("undersample")//, "undersample", "oversample", "smote")
+    val samplingMethods = Array("smotePlus") //none", "undersample", "oversample", "smote", "smotePlus")//, "undersample", "oversample", "smote")
     if(mode == "standard") {
       val writer = new PrintWriter(new File("/home/ford/repos/imbalanced-spark/standard.txt"))
       //writer.write("sampling,minorityTypes,AvAcc\n")
