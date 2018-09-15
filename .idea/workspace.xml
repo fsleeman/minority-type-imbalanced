@@ -1,53 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
+  <component name="ArtifactsWorkspaceSettings">
+    <artifacts-to-build>
+      <artifact name="imbalanced-spark:jar" />
+    </artifacts-to-build>
+  </component>
   <component name="ChangeListManager">
-    <list default="true" id="78406fed-0fc7-45a7-bd48-fc89eca170bf" name="Default" comment="">
+    <list default="true" id="1a38291b-7837-4cd1-8b31-3407f5fed13e" name="Default" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/artifacts/imbalanced_spark_jar.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/libraries/sbt__org_apache_avro_avro_1_7_7_jar.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/libraries/sbt__org_apache_avro_avro_1_7_7_jar.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules/imbalanced-spark-build.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/imbalanced-spark-build.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/modules/imbalanced-spark.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules/imbalanced-spark.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/sbt.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/sbt.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$7a67e82a54caa30a9503$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$7a67e82a54caa30a9503.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$7a67e82a54caa30a9503.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$8cf82f6a47fbc0653da1$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$8cf82f6a47fbc0653da1.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$8cf82f6a47fbc0653da1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$91056f72c1cf5922024f$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$91056f72c1cf5922024f.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$91056f72c1cf5922024f.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$a6ca35c91bf9c571e7ec$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$a6ca35c91bf9c571e7ec.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$a6ca35c91bf9c571e7ec.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$bdb7f3ec3f6bd5c280a6$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$bdb7f3ec3f6bd5c280a6.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$bdb7f3ec3f6bd5c280a6.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$c4bc38f7a7e2f588a22e$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$c4bc38f7a7e2f588a22e.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$c4bc38f7a7e2f588a22e.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$c9cb082f3b133ee1dc58$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$c9cb082f3b133ee1dc58.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$c9cb082f3b133ee1dc58.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$e4600d4569343d6e542b$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$e4600d4569343d6e542b.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$e4600d4569343d6e542b.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$fe97cc2b6cb94cc341be$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$fe97cc2b6cb94cc341be.cache" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/config-classes/$fe97cc2b6cb94cc341be.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/default/imbalanced-spark-build/scala_2.12/sbt_1.0/0.1.0-SNAPSHOT/resolved.xml.properties" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/default/imbalanced-spark-build/scala_2.12/sbt_1.0/0.1.0-SNAPSHOT/resolved.xml.properties" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/default/imbalanced-spark-build/scala_2.12/sbt_1.0/0.1.0-SNAPSHOT/resolved.xml.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/default/imbalanced-spark-build/scala_2.12/sbt_1.0/0.1.0-SNAPSHOT/resolved.xml.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-compile-internal.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-compile-internal.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-compile.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-compile.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-optional.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-optional.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-plugin.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-plugin.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-pom.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-pom.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-provided.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-provided.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-runtime-internal.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-runtime-internal.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-runtime.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-runtime.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-scala-tool.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-scala-tool.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-test-internal.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-test-internal.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-test.xml" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/scala-2.12/sbt-1.0/resolution-cache/reports/default-imbalanced-spark-build-test.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/streams/$global/update/$global/streams/out" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/streams/$global/update/$global/streams/out" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/project/target/streams/$global/update/$global/streams/update_cache_2.12/output" beforeDir="false" afterPath="$PROJECT_DIR$/project/target/streams/$global/update/$global/streams/update_cache_2.12/output" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/test/scala/Classifier.scala" beforeDir="false" afterPath="$PROJECT_DIR$/src/test/scala/Classifier.scala" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/.history" beforeDir="false" afterPath="$PROJECT_DIR$/target/.history" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/default/imbalanced-spark$sources/0.1/resolved.xml.properties" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/default/imbalanced-spark$sources/0.1/resolved.xml.properties" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/default/imbalanced-spark$sources/0.1/resolved.xml.xml" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/default/imbalanced-spark$sources/0.1/resolved.xml.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/default/imbalanced-spark_2.11/0.1/resolved.xml.properties" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/default/imbalanced-spark_2.11/0.1/resolved.xml.properties" afterDir="false" />
@@ -74,73 +40,49 @@
       <change beforePath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/reports/default-imbalanced-spark_2.11-scala-tool.xml" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/reports/default-imbalanced-spark_2.11-scala-tool.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/reports/default-imbalanced-spark_2.11-test-internal.xml" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/reports/default-imbalanced-spark_2.11-test-internal.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/reports/default-imbalanced-spark_2.11-test.xml" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/resolution-cache/reports/default-imbalanced-spark_2.11-test.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$10.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$11.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$12.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$13.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$14.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$15.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$16.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$17.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$18.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$19.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$2.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$20.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$21.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$22.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$23.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$24.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$25.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$26.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$27.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$28.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$29.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$3.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$30.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$31.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$32.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$33$$anonfun$apply$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$33.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$34.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$35.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$36.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$38.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$39.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$4.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$40.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$45.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$46.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$47.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$48.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$49.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$5.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$6.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$7.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$8.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$9.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$1$$anonfun$37.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$1$$anonfun$apply$mcVI$sp$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$2.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$3.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$4.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$getDistances2$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$main$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$overSample$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1$$anonfun$apply$mcVI$sp$2$$anonfun$41.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1$$anonfun$apply$mcVI$sp$2$$anonfun$42.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1$$anonfun$apply$mcVI$sp$2$$anonfun$43$$anonfun$apply$2.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1$$anonfun$apply$mcVI$sp$2$$anonfun$43.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1$$anonfun$apply$mcVI$sp$2$$anonfun$44.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1$$anonfun$apply$mcVI$sp$2.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$underSample$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$underSample$2.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$typecreator2$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$typecreator5$1.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$.class" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier.class" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$10.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$10.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$11.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$11.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$12.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$12.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$13.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$13.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$14.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$14.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$15.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$15.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$2.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$2.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$23.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$23.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$26.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$26.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$27.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$27.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$28.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$28.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$29.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$29.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$3.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$30.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$30.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$31.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$31.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$32.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$32.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$33.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$33.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$34.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$34.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$35.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$35.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$36.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$36.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$38.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$38.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$39.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$39.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$4.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$4.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$40.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$40.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$45.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$45.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$46.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$46.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$47.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$47.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$48.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$48.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$49.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$49.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$7.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$7.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$8.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$8.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$9.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$9.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$1$$anonfun$apply$mcVI$sp$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$1$$anonfun$apply$mcVI$sp$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$2.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$2.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$3.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$calculateMinorityClasses$3.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$getDistances2$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$getDistances2$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$main$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$main$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$$anonfun$smote$1.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier$.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier.class" beforeDir="false" afterPath="$PROJECT_DIR$/target/scala-2.11/test-classes/edu/vcu/sleeman/Classifier.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/streams/$global/dependencyPositions/$global/streams/update_cache_2.11/output_dsp" beforeDir="false" afterPath="$PROJECT_DIR$/target/streams/$global/dependencyPositions/$global/streams/update_cache_2.11/output_dsp" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/streams/$global/update/$global/streams/out" beforeDir="false" afterPath="$PROJECT_DIR$/target/streams/$global/update/$global/streams/out" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/streams/$global/update/$global/streams/update_cache_2.11/output" beforeDir="false" afterPath="$PROJECT_DIR$/target/streams/$global/update/$global/streams/update_cache_2.11/output" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/target/streams/$global/updateClassifiers/$global/streams/out" beforeDir="false" afterPath="$PROJECT_DIR$/target/streams/$global/updateClassifiers/$global/streams/out" afterDir="false" />
@@ -172,17 +114,26 @@
       <file leaf-file-name="build.sbt" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/build.sbt">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="210">
-              <caret line="14" selection-start-line="14" selection-end-line="14" />
+            <state relative-caret-position="225">
+              <caret line="15" column="24" selection-start-line="15" selection-start-column="24" selection-end-line="15" selection-end-column="24" />
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="pom.xml" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/pom.xml">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="150">
+              <caret line="10" column="31" lean-forward="true" selection-start-line="10" selection-start-column="31" selection-end-line="10" selection-end-column="31" />
             </state>
           </provider>
         </entry>
       </file>
       <file leaf-file-name="Classifier.scala" pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/src/test/scala/Classifier.scala">
+        <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Classifier.scala">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="567">
-              <caret line="787" column="5" selection-start-line="787" selection-start-column="5" selection-end-line="787" selection-end-column="5" />
+            <state relative-caret-position="181">
+              <caret line="985" column="94" selection-start-line="985" selection-start-column="36" selection-end-line="985" selection-end-column="94" />
               <folding>
                 <element signature="e#25#77#0" expanded="true" />
               </folding>
@@ -190,13 +141,27 @@
           </provider>
         </entry>
       </file>
+      <file leaf-file-name="MinorityType.scala" pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/MinorityType.scala">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="225">
+              <caret line="15" column="42" selection-start-line="15" selection-start-column="42" selection-end-line="15" selection-end-column="42" />
+            </state>
+          </provider>
+        </entry>
+      </file>
     </leaf>
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Package Object" />
+      </list>
+    </option>
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>fn</find>
-      <find>num</find>
-      <find>testLabels</find>
+      <find>smote</find>
     </findStrings>
   </component>
   <component name="Git.Settings">
@@ -205,8 +170,12 @@
   <component name="IdeDocumentHistory">
     <option name="CHANGED_PATHS">
       <list>
+        <option value="$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Test.scala" />
+        <option value="$PROJECT_DIR$/src/pom.xml" />
+        <option value="$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Classifier.scala" />
+        <option value="$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/MinorityType.scala" />
         <option value="$PROJECT_DIR$/build.sbt" />
-        <option value="$PROJECT_DIR$/src/test/scala/Classifier.scala" />
+        <option value="$PROJECT_DIR$/pom.xml" />
       </list>
     </option>
   </component>
@@ -219,7 +188,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="AndroidView" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -227,34 +195,26 @@
               <item name="imbalanced-spark" type="b2602c69:ProjectViewProjectNode" />
               <item name="imbalanced-spark" type="462c0819:PsiDirectoryNode" />
             </path>
-            <path>
-              <item name="imbalanced-spark" type="b2602c69:ProjectViewProjectNode" />
-              <item name="imbalanced-spark" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="imbalanced-spark" type="b2602c69:ProjectViewProjectNode" />
-              <item name="imbalanced-spark" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="test" type="462c0819:PsiDirectoryNode" />
-            </path>
-            <path>
-              <item name="imbalanced-spark" type="b2602c69:ProjectViewProjectNode" />
-              <item name="imbalanced-spark" type="462c0819:PsiDirectoryNode" />
-              <item name="src" type="462c0819:PsiDirectoryNode" />
-              <item name="test" type="462c0819:PsiDirectoryNode" />
-              <item name="scala" type="462c0819:PsiDirectoryNode" />
-            </path>
           </expand>
           <select />
         </subPane>
       </pane>
-      <pane id="Scope" />
       <pane id="PackagesPane" />
+      <pane id="Scope" />
+      <pane id="AndroidView" />
     </panes>
   </component>
   <component name="PropertiesComponent">
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="/tmp/imbalanced-spark" />
+    <property name="project.structure.last.edited" value="Artifacts" />
+    <property name="project.structure.proportion" value="0.15" />
+    <property name="project.structure.side.proportion" value="0.2" />
+    <property name="settings.editor.selected.configurable" value="preferences.lookFeel" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
   </component>
   <component name="RunDashboard">
     <option name="ruleStates">
@@ -269,18 +229,14 @@
     </option>
   </component>
   <component name="RunManager">
-    <configuration name="Classifier" type="Application" factoryName="Application" temporary="true">
+    <configuration name="JAR Build" type="Application" factoryName="Application">
       <option name="MAIN_CLASS_NAME" value="edu.vcu.sleeman.Classifier" />
       <module name="imbalanced-spark" />
-      <option name="PROGRAM_PARAMETERS" value="$USER_HOME$/data/covtype/covtype10k.data Cover_Type sparkNN yes" />
       <option name="VM_PARAMETERS" value="-Xms12g -Xmx12g -Dspark.master=&quot;local[*]&quot;" />
       <option name="WORKING_DIRECTORY" value="file://$PROJECT_DIR$" />
-      <extension name="coverage">
-        <pattern>
-          <option name="PATTERN" value="edu.vcu.sleeman.*" />
-          <option name="ENABLED" value="true" />
-        </pattern>
-      </extension>
+      <method>
+        <option name="Maven.BeforeRunTask" enabled="true" file="$PROJECT_DIR$/pom.xml" goal="assembly:single" />
+      </method>
     </configuration>
     <configuration default="true" type="Application" factoryName="Application">
       <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
@@ -323,11 +279,6 @@
       <properties />
       <listeners />
     </configuration>
-    <recent_temporary>
-      <list>
-        <item itemvalue="Application.Classifier" />
-      </list>
-    </recent_temporary>
   </component>
   <component name="SbtLocalSettings">
     <option name="availableProjects">
@@ -356,9 +307,9 @@
     </option>
     <option name="modificationStamps">
       <map>
-        <entry key="$PROJECT_DIR$" value="3054409612000" />
+        <entry key="$PROJECT_DIR$" value="3074092755000" />
         <entry key="$PROJECT_DIR$/build.sbt" value="1919809348" />
-        <entry key="$PROJECT_DIR$/project/build.properties" value="2466230007" />
+        <entry key="$PROJECT_DIR$/project/build.properties" value="249398541" />
       </map>
     </option>
     <option name="projectSyncType">
@@ -372,42 +323,43 @@
   </component>
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="78406fed-0fc7-45a7-bd48-fc89eca170bf" name="Default" comment="" />
-      <created>1524920395538</created>
+      <changelist id="1a38291b-7837-4cd1-8b31-3407f5fed13e" name="Default" comment="" />
+      <created>1537042016900</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
-      <updated>1524920395538</updated>
+      <updated>1537042016900</updated>
     </task>
-    <task id="LOCAL-00001" summary="Initial implementation of the new metrics for standard mode only">
-      <created>1527371541440</created>
+    <task id="LOCAL-00001" summary="Updated Intellij project/folders">
+      <created>1537047789741</created>
       <option name="number" value="00001" />
       <option name="presentableId" value="LOCAL-00001" />
       <option name="project" value="LOCAL" />
-      <updated>1527371541440</updated>
+      <updated>1537047789741</updated>
     </task>
     <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="ToolWindowManager">
-    <frame x="-1" y="0" width="2562" height="1413" extended-state="6" />
+    <frame x="-1" y="0" width="1922" height="1053" extended-state="6" />
+    <editor active="true" />
     <layout>
       <window_info anchor="right" id="Palette" order="3" />
       <window_info anchor="bottom" id="TODO" order="6" />
-      <window_info anchor="bottom" id="Messages" order="7" weight="0.32900763" />
+      <window_info anchor="bottom" id="Messages" order="7" />
       <window_info anchor="right" id="sbt" order="3" />
       <window_info anchor="right" id="Palette&#9;" order="3" />
       <window_info id="Image Layers" order="2" />
       <window_info anchor="right" id="Capture Analysis" order="3" />
       <window_info anchor="bottom" id="Event Log" order="7" side_tool="true" />
       <window_info anchor="right" id="Maven Projects" order="3" />
-      <window_info active="true" anchor="bottom" id="Run" order="2" visible="true" weight="0.44885495" />
+      <window_info anchor="bottom" id="Run" order="2" visible="true" weight="0.32937366" />
       <window_info anchor="bottom" id="Version Control" order="7" />
       <window_info anchor="bottom" id="Terminal" order="7" />
       <window_info id="Capture Tool" order="2" />
       <window_info id="Designer" order="2" />
-      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.08554687" />
+      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.25" />
       <window_info anchor="bottom" id="sbt-shell-toolwindow" order="7" />
-      <window_info anchor="bottom" id="Build" order="7" weight="0.32947367" />
+      <window_info anchor="bottom" id="Build" order="7" weight="0.32937366" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info anchor="right" id="Ant Build" order="1" weight="0.25" />
       <window_info id="UI Designer" order="2" />
@@ -417,47 +369,124 @@
       <window_info anchor="right" content_ui="combo" id="Hierarchy" order="2" weight="0.25" />
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="right" id="Commander" order="0" weight="0.4" />
-      <window_info anchor="bottom" id="Find" order="1" />
-      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
       <window_info anchor="bottom" id="Message" order="0" />
+      <window_info anchor="bottom" id="Cvs" order="4" weight="0.25" />
+      <window_info anchor="bottom" id="Find" order="1" />
     </layout>
   </component>
   <component name="VcsContentAnnotationSettings">
     <option name="myLimit" value="2678400000" />
   </component>
   <component name="VcsManagerConfiguration">
-    <MESSAGE value="Initial implementation of the new metrics for standard mode only" />
-    <option name="LAST_COMMIT_MESSAGE" value="Initial implementation of the new metrics for standard mode only" />
+    <MESSAGE value="Updated Intellij project/folders" />
+    <option name="LAST_COMMIT_MESSAGE" value="Updated Intellij project/folders" />
   </component>
   <component name="editorHistoryManager">
-    <entry file="file://$PROJECT_DIR$/build.sbt">
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Test.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="210">
-          <caret line="14" lean-forward="true" selection-start-line="14" selection-end-line="14" />
+        <state relative-caret-position="75">
+          <caret line="5" column="25" selection-start-line="5" selection-start-column="25" selection-end-line="5" selection-end-column="25" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/Classifier.scala">
+    <entry file="file://$PROJECT_DIR$/build.sbt">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="270">
-          <caret line="18" column="24" lean-forward="true" selection-start-line="18" selection-start-column="24" selection-end-line="18" selection-end-column="24" />
+        <state relative-caret-position="225">
+          <caret line="15" column="24" selection-start-line="15" selection-start-column="24" selection-end-line="15" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Classifier.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="120">
+          <caret line="8" column="39" selection-start-line="8" selection-start-column="39" selection-end-line="8" selection-end-column="39" />
           <folding>
             <element signature="e#25#77#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/build.sbt">
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/MinorityType.scala">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="210">
-          <caret line="14" selection-start-line="14" selection-end-line="14" />
+        <state relative-caret-position="225">
+          <caret line="15" column="42" selection-start-line="15" selection-start-column="42" selection-end-line="15" selection-end-column="42" />
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/src/test/scala/Classifier.scala">
+    <entry file="file://$PROJECT_DIR$/pom.xml">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="567">
-          <caret line="787" column="5" selection-start-line="787" selection-start-column="5" selection-end-line="787" selection-end-column="5" />
+        <state relative-caret-position="150">
+          <caret line="10" column="31" lean-forward="true" selection-start-line="10" selection-start-column="31" selection-end-line="10" selection-end-column="31" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Test.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="75">
+          <caret line="5" column="25" selection-start-line="5" selection-start-column="25" selection-end-line="5" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/build.sbt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="225">
+          <caret line="15" column="24" selection-start-line="15" selection-start-column="24" selection-end-line="15" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Classifier.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="120">
+          <caret line="8" column="39" selection-start-line="8" selection-start-column="39" selection-end-line="8" selection-end-column="39" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/MinorityType.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="225">
+          <caret line="15" column="42" selection-start-line="15" selection-start-column="42" selection-end-line="15" selection-end-column="42" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/pom.xml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="240">
+          <caret line="16" column="17" lean-forward="true" selection-start-line="16" selection-start-column="17" selection-end-line="16" selection-end-column="17" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/MinorityType.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="225">
+          <caret line="15" column="42" selection-start-line="15" selection-start-column="42" selection-end-line="15" selection-end-column="42" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Test.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="75">
+          <caret line="5" column="25" selection-start-line="5" selection-start-column="25" selection-end-line="5" selection-end-column="25" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/build.sbt">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="225">
+          <caret line="15" column="24" selection-start-line="15" selection-start-column="24" selection-end-line="15" selection-end-column="24" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/pom.xml">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="150">
+          <caret line="10" column="31" lean-forward="true" selection-start-line="10" selection-start-column="31" selection-end-line="10" selection-end-column="31" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/src/main/scala/edu/vcu/sleeman/Classifier.scala">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="181">
+          <caret line="985" column="94" selection-start-line="985" selection-start-column="36" selection-end-line="985" selection-end-column="94" />
           <folding>
             <element signature="e#25#77#0" expanded="true" />
           </folding>
@@ -467,9 +496,84 @@
   </component>
   <component name="masterDetails">
     <states>
+      <state key="ArtifactsStructureConfigurable.UI">
+        <settings>
+          <artifact-editor />
+          <last-edited>imbalanced-spark:jar</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+                <option value="0.5" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="FacetStructureConfigurable.UI">
+        <settings>
+          <last-edited>No facets are configured</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="GlobalLibrariesConfigurable.UI">
+        <settings>
+          <last-edited>scala-sdk-2.11.12</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="JdkListConfigurable.UI">
+        <settings>
+          <last-edited>1.8</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="ModuleStructureConfigurable.UI">
+        <settings>
+          <last-edited>imbalanced-spark</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+                <option value="0.6" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
       <state key="ProjectJDKs.UI">
         <settings>
           <last-edited>1.8</last-edited>
+          <splitter-proportions>
+            <option name="proportions">
+              <list>
+                <option value="0.2" />
+              </list>
+            </option>
+          </splitter-proportions>
+        </settings>
+      </state>
+      <state key="ProjectLibrariesConfigurable.UI">
+        <settings>
+          <last-edited>scala-sdk-2.11.12</last-edited>
           <splitter-proportions>
             <option name="proportions">
               <list>
