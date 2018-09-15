@@ -90,7 +90,6 @@ object MinorityType {
     return result.head._1
   }
 
-
   def getMinorityTypeStatus(df: DataFrame): DataFrame = {
     val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
 
@@ -122,23 +121,11 @@ object MinorityType {
   def getMinorityTypeStatus2(df: DataFrame): DataFrame = {
     import df.sparkSession.implicits._
 
-    //val train_data_collected = df.collect()
-    //println(train_data_collected.take(1)(0))
-
     val train_data = df.rdd.map({r=>
       val dataString = r(2).toString()
       val array: Array[Double] = dataString.substring(1, dataString.length-1).split(',').map(_.toDouble)
       (r(0).toString().toLong, (r(1).toString().toInt, array))
       })
-
-    /*val train_data = df.rdd.map({ r =>
-      val array = r._2.toSeq.toArray.reverse
-      val cls = array.head.toString().toDouble.toInt
-      val rowMapped: Array[Double] = array.tail.map(_.toString().toDouble)
-      //NOTE - This needs to be back in the original order to train/test works correctly
-      (r._1, (cls, rowMapped.reverse))
-    })*/
-
 
     val train_data_collected: Array[(Long, (Int, Array[Double]))] = train_data.collect()
 
@@ -146,13 +133,7 @@ object MinorityType {
     val minorityData: RDD[(Long, Int, String, Array[Double])] = train_data.map(x => getDistances(x, train_data_collected)).cache() //FIXME try not caching this?
     //FIXME -return indicies per class/minority type
 
-
-
-    //val sqlContext = df.sqlContext
-    //import sqlContext.implicits._
-
-   val results = minorityData.toDF()
-
+    val results = minorityData.toDF()
     results.withColumnRenamed("_1", "index")
       .withColumnRenamed("_2", "label")
       .withColumnRenamed("_3", "minorityType")
