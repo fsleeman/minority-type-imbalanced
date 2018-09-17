@@ -765,6 +765,12 @@ object Classifier {
     (index, currentLabel, getMinorityClassLabel(currentCount), currentArray)//features.toString().asInstanceOf[mutable.WrappedArray[Double]])
   }
 
+
+  def main2(args: Array[String]): Unit = {
+
+
+  }
+
   def main(args: Array[String]) {
 
     //val fl = new java.io.File("/home/ford/data/poker/foo")
@@ -781,14 +787,16 @@ object Classifier {
     for(x<- args) {
       print(x + '\n')
     }
-    if (args.length < 7) {
-      print("Usage: imbalanced-spark [input file path] [label column] [useHeader] [save path] [r/w mode] [r/w path] [k]")
+    if (args.length < 9) {
+      println("Usage: imbalanced-spark [input file path] [kNN mode] [label column] [useHeader] [save path] [file description] [r/w mode] [r/w path] [k]")
       return
     }
     //println("*****")
     //print("Args:")
     // args.foreach(println)
     // println("*****")
+
+
 
     val input_file = args(0)
     val labelColumnName = args(1)
@@ -797,17 +805,31 @@ object Classifier {
     val useHeader = if (args.length > 3 && args(3).equals("yes")) true else false
 
     val savePath = args(4)
+    val fileDescription = args(5)
 
     val rw =
       if(args.length > 6) {
-        if(args(5) == "read") Array("read", args(6).toString())
-        else if(args(5)=="write") Array("write", args(6).toString())
+        if(args(6) == "read") Array("read", args(7).toString())
+        else if(args(6)=="write") Array("write", args(7).toString())
         else Array("","")
       }
       else { Array("","") }
 
     println(rw)
-    kValue = args(7).toInt
+    kValue = args(8).toInt
+
+    println("*****")
+    println("Args:")
+    println(args.length)
+    args.foreach(println)
+    println("*****")
+
+    val samplingMethods = ArrayBuffer[String]()
+    for(i<- 9 to args.length-1) {
+      samplingMethods += args(i)
+    }
+    samplingMethods.foreach(println)
+
 
     val df1 = spark.read.
       option("inferSchema", true).
@@ -822,8 +844,8 @@ object Classifier {
     val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
     var minorityTypes = Array[Array[String]]()
 
-    for(i<-0 to 14) {
-      //for(i<-0 to 0) {
+    //for(i<-0 to 14) {
+      for(i<-0 to 0) {
       var currentMinorityTypes = Array[String]()
       if (0 != (i & 1)) false else {
         currentMinorityTypes = currentMinorityTypes :+ "safe"
@@ -984,7 +1006,8 @@ object Classifier {
 
 
       //val samplingMethods = Array("none", "undersample", "oversample", "smote", "smotePlus")//)//, "smote", "smotePlus")//, "smote", "smotePlus")
-      val samplingMethods = Array("smotePlus")//, "smotePlus")
+      //val samplingMethods = Array("smotePlus")//, "smotePlus")
+      //val samplingMethods = Array("none")//, "smotePlus")
 
       val d = trainData.select("label").distinct()
       val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString().toInt)
@@ -1025,6 +1048,8 @@ object Classifier {
     else {
       spark.sqlContext.emptyDataFrame
     }*/
+      println("~~~~~ samplingMethods")
+      samplingMethods.foreach(println)
 
       //Array("none", "undersample", "oversample", "smote", "smotePlus")//, "undersample", "oversample", "smote")
       if(mode == "standard") {
@@ -1049,7 +1074,14 @@ object Classifier {
         writer.close()
       }
       else if(mode == "sparkNN") {
-        val writer = new PrintWriter(new File(savePath + cutIndex.toString))///home/ford/repos/imbalanced-spark/sparkNN.txt"))
+        println(savePath)
+        println(fileDescription)
+        println(kValue)
+        println(cutIndex)
+
+        //val writer = new PrintWriter(new File(savePath + "/" + fileDescription + "/" + "k" + kValue.toString + "/" +
+        //  fileDescription + "_k" + kValue.toString + " " + cutIndex.toString + ".csv"))///home/ford/repos/imbalanced-spark/sparkNN.txt"))
+        val writer = new PrintWriter(new File(savePath + "/" + fileDescription + "/k" + kValue.toString + "/" + fileDescription + "_k" + kValue.toString + "_" + cutIndex.toString + ".csv"))
         writer.write("sampling,minorityTypes,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb,CBA\n")
         for (method <- samplingMethods) {
           //writer.write(runSparkNN(preppedDataUpdated, method, minorityTypes, true))
