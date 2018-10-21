@@ -1,29 +1,24 @@
 package edu.vcu.sleeman
 
-import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.ml.{Pipeline}
 import org.apache.spark.sql.types._
 
 import scala.collection.mutable.ArrayBuffer
 import org.apache.spark.ml.feature._
-import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.ml.linalg.{DenseVector, Vectors}
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql._
 import org.apache.spark.sql.DataFrame
 import java.io.PrintWriter
-import java.io.File
 
 import org.apache.log4j._
 
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 import org.apache.spark.ml.classification._
 import org.apache.spark.ml.knn.KNN
 import org.apache.spark.ml.feature.MinMaxScaler
-import org.apache.spark.ml.knn.KNN.VectorWithNorm
 import org.apache.spark.ml.clustering.KMeans
-import org.apache.spark.sql.expressions.UserDefinedFunction
-
-import edu.vcu.sleeman.MinorityType.{getMinorityTypeStatus, getMinorityTypeStatus2}
 
 import scala.util.Try
 import scala.util.{Success,Failure}
@@ -32,10 +27,8 @@ import scala.util.{Success,Failure}
 //FIXME - turn classes back to Ints instead of Doubles
 object Classifier {
 
-  //var clusterCount: Int = -1 //FIXME
-  //var kValues: Array[Int] = Array(2) //Array(1, 2, 5, 10, 25, 50)
-  val clusterKValues: Array[Int] = Array(2,5,10,25)
-  val cutoffs: Array[Double] = Array(0.0, 0.05, 0.1, 0.15, 0.2)
+  val clusterKValues: Array[Int] = Array(25)
+  val cutoffs: Array[Double] = Array(0.1)
   var results = ""
 
   // FIXME - define this in another file?
@@ -46,7 +39,7 @@ object Classifier {
 
 
   def getIndexedDF(spark: SparkSession, columns: Array[String], trainData: DataFrame): DataFrame = {
-    val keepCols = trainData.columns.map(status => if (columns.contains(status) && !status.equals("_c41")) None else status)
+    //val keepCols = trainData.columns.map(status => if (columns.contains(status) && !status.equals("_c41")) None else status)
     val indexers = columns.map { colName =>
       new StringIndexer().setInputCol(colName).setOutputCol(colName + "_idx")
     }
@@ -59,24 +52,25 @@ object Classifier {
   }
 
   def maxValue(a: Double, b:Double): Double ={
-    if(a >= b) return a
-    else return b
+    if(a >= b) { a }
+    else { b }
   }
 
   def calculateClassifierResults(distinctClasses: DataFrame, confusionMatrix: DataFrame): String ={
     import distinctClasses.sparkSession.implicits._
     //FIXME - don't calculate twice
-    val maxLabel: Int = distinctClasses.collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
-    val minLabel: Int = distinctClasses.collect().map(x => x.toSeq.last.toString().toDouble.toInt).min
-    val numberOfClasses = distinctClasses.count()
+
+    val classLabels = distinctClasses.collect().map(x => x.toSeq.last.toString.toDouble.toInt)
+
+    val maxLabel: Int = classLabels.max //distinctClasses.collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
+    val minLabel: Int = classLabels.min //distinctClasses.collect().map(x => x.toSeq.last.toString().toDouble.toInt).min
+    val numberOfClasses = classLabels.length //distinctClasses.count()
     val classCount = confusionMatrix.columns.length - 1
     val testLabels = distinctClasses.map(_.getAs[Int]("label")).map(x => x.toInt).collect().sorted
 
     val rows = confusionMatrix.collect.map(_.toSeq.map(_.toString))
     val totalCount = rows.map(x => x.tail.map(y => y.toDouble.toInt).sum).sum
     val classMaps = testLabels.zipWithIndex.map(x => (x._2, x._1))
-
-    //confusionMatrix.show(60,false)
 
     var AvAvg = 0.0
     var MAvG = 1.0
@@ -95,12 +89,10 @@ object Classifier {
     val beta = 0.5 // User specified
 
     //FIXME - could be made parallel w/udf
-    //for (clsIndex <- 1 to maxLabel) {
     for (clsIndex <- minLabel to maxLabel - minLabel) {
-      //print(clsIndex + "\n")
       val colSum = rows.map(x => x(clsIndex + 1).toInt).sum
-      val rowValueSum = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail.map(x => x.toDouble.toInt).sum else 0
-      val tp: Double = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x(0).toDouble.toInt == clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
+      val rowValueSum = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x.head.toDouble.toInt == clsIndex)(0).tail.map(x => x.toDouble.toInt).sum else 0
+      val tp: Double = if (classMaps.map(x => x._2).contains(clsIndex)) rows.filter(x => x.head.toDouble.toInt == clsIndex)(0).tail(clsIndex).toDouble.toInt else 0
       val fn: Double = colSum - tp
       val fp: Double = rowValueSum - tp
       val tn: Double = totalCount - tp - fp - fn
@@ -108,24 +100,21 @@ object Classifier {
       val recall = tp / (tp + fn)
       val precision = tp / (tp + fp)
 
-      //println("class acc: " + ((tp + tn) / (tp + tn + fp + fn)))
-      //println(tp + " " + tn + " " + fp + " " + fn)
-
       AvAvg += ((tp + tn) / (tp + tn + fp + fn))
       MAvG *= recall
-      RecM += { if(recall.isNaN()) 0.0 else recall }
+      RecM += { if(recall.isNaN) 0.0 else recall }
       PrecM += precision
-      def getAvFb(): Double= {
-        val result = (((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall))
-        if(result.isNaN()) {
+      val getAvFb: Double= {
+        val result = ((1 + Math.pow(beta, 2.0)) * precision * recall) / (Math.pow(beta, 2.0) * precision + recall)
+        if(result.isNaN) {
           0.0
         }
         else result
       }
-      AvFb += getAvFb()
+      AvFb += getAvFb
 
       //FIXME - what to do if col/row sum are zero?
-      var rowColMaxValue = maxValue(colSum, rowValueSum)
+      val rowColMaxValue = maxValue(colSum, rowValueSum)
       if(rowColMaxValue > 0) {
         CBA += tp / rowColMaxValue
 
@@ -136,132 +125,46 @@ object Classifier {
       }
 
       //CBA += (tp / maxValue(colSum, rowValueSum))
-
-
-
       // for Recu and Precu
       tpSum += tp
       tSum += (tp + fn)
       pSum += (tp + fp)
     }
 
-    //println("class count"  + numberOfClasses.toDouble)
-    AvAvg /= classCount//numberOfClasses.toDouble
-    MAvG = {  val result = Math.pow((MAvG), (1/numberOfClasses.toDouble)); if(result.isNaN()) 0.0 else result } //Math.pow((MAvG), (1/numberOfClasses.toDouble))
-    RecM /= classCount//numberOfClasses
-    PrecM /= classCount//numberOfClasses
+    AvAvg /= classCount
+    MAvG = {  val result = Math.pow(MAvG, 1/numberOfClasses.toDouble); if(result.isNaN) 0.0 else result } //Math.pow((MAvG), (1/numberOfClasses.toDouble))
+    RecM /= classCount
+    PrecM /= classCount
     Recu = tpSum / tSum
     Precu = tpSum / pSum
-    FbM = { val result = ((1 + Math.pow(beta, 2.0)) * PrecM * RecM) / (Math.pow(beta, 2.0) * PrecM + RecM); if(result.isNaN()) 0.0 else result }
-    Fbu = { val result = ((1 + Math.pow(beta, 2.0)) * Precu * Recu) / (Math.pow(beta, 2.0) * Precu + Recu); if(result.isNaN()) 0.0 else result }
-    AvFb /= classCount//numberOfClasses.toDouble
-    CBA /= classCount//numberOfClasses.toDouble
+    FbM = { val result = ((1 + Math.pow(beta, 2.0)) * PrecM * RecM) / (Math.pow(beta, 2.0) * PrecM + RecM); if(result.isNaN) 0.0 else result }
+    Fbu = { val result = ((1 + Math.pow(beta, 2.0)) * Precu * Recu) / (Math.pow(beta, 2.0) * Precu + Recu); if(result.isNaN) 0.0 else result }
+    AvFb /= classCount
+    CBA /= classCount
 
     AvAvg  + "," + MAvG + "," + RecM +"," + PrecM + "," + Recu + "," + Precu + "," + FbM + "," + Fbu + "," + AvFb + "," + CBA
   }
 
-  /*def runClassifier(spark: SparkSession, df: DataFrame, samplingMethod: String, clusterResults: Map[Int,DataFrame], enableDataScaling: Boolean): String = {
-    import spark.implicits._
-    //val Array(trainData, testData) = df.randomSplit(Array(0.8, 0.2),42L)
-    //FIXME - add cross validation
-    val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
-
-    val data = train_index.map({ r =>
-      val array = r._2.toSeq.toArray.reverse
-      val cls = array.head.toString().toDouble.toInt
-      val rowMapped: Array[Double] = array.tail.map(_.toString().toDouble)
-      //NOTE - This needs to be back in the original order to train/test works correctly
-      (r._1, cls, "", rowMapped.reverse)
-    })
-
-    val results: DataFrame = data.toDF().withColumnRenamed("_1", "index")
-      .withColumnRenamed("_2", "label")
-      .withColumnRenamed("_3", "minorityType")
-      .withColumnRenamed("_4", "features")
-
-    val converted: DataFrame = convertFeaturesToVector(results)
-
-    val scaledData: DataFrame = if(enableDataScaling) {
-      val scaler = new MinMaxScaler()
-        .setInputCol("features")
-        .setOutputCol("scaledFeatures")
-
-      // Compute summary statistics and generate MinMaxScalerModel
-      val scalerModel = scaler.fit(converted)
-
-      // rescale each feature to range [min, max].
-      //val scaledData = scalerModel.transform(converted)
-      val scaledData: DataFrame = scalerModel.transform(converted)
-      scaledData
-    } else {
-      converted
-    }
-
-    val Array(trainData, testData) = scaledData.randomSplit(Array(0.8, 0.2),42L)
-    //trainData.printSchema()
-
-    val trainDataSampled = sampleData(spark, trainData, samplingMethod, clusterResults)
-    //getCountsByClass(spark, "label", trainDataSampled)
-
-    val maxLabel: Int = testData.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
-
-    //println("test counts")
-    //getCountsByClass(spark, "label", testData).show()
-
-    //println("train counts")
-    //getCountsByClass(spark, "label", trainDataSampled).show()
-
-
-    //println("** train data **")
-    //trainDataSampled.show()
-
-    val classifier = new RandomForestClassifier().setNumTrees(10).
-      //setSeed(Random.nextLong()).
-      setSeed(42L).
-      setLabelCol("label").
-      setFeaturesCol("features").
-      setPredictionCol("prediction")
-
-    val model = classifier.fit(trainDataSampled)
-    val predictions2 = model.transform(testData)
-
-    val confusionMatrix = predictions2.
-      groupBy("label").
-      pivot("prediction", (0 to maxLabel)).
-      count().
-      na.fill(0.0).
-      orderBy("label")
-
-    confusionMatrix.show()
-
-    samplingMethod + ",," + calculateClassifierResults(testData.select("label").distinct(), confusionMatrix) // FIXME - why to ,'s?
-  }*/
-
+  //FIXME - change these to int/enum
   // Map number of nearest same-class neighbors to minority class label
   def getMinorityClassLabel(kCount: Int): String = {
-    if (kCount >= 4) {
-      return "safe"
-    }
-    else if (kCount >= 2) {
-      return "borderline"
-    }
-    else if (kCount == 1) {
-      return "rare"
-    }
-    else {
-      return "outlier"
-    }
+    if (kCount >= 4) {"safe" }
+    else if (kCount >= 2) { "borderline" }
+    else if (kCount == 1) { "rare" }
+    else { "outlier" }
   }
 
   def setMinorityStatus(cls: Int, sample: (Int, Array[Int])): (Int, String) = {
     //positive case
     if (cls == sample._1) {
-      val matchingCount = sample._2.filter(x => x == cls).length
+      //val matchingCount = sample._2.filter(x => x == cls).length
+      val matchingCount = sample._2.count(x => x == cls)
       (1, getMinorityClassLabel(matchingCount))
     }
     //negative case
     else {
-      val matchingCount = sample._2.filter(x => x != cls).length
+      //val matchingCount = sample._2.filter(x => x != cls).length
+      val matchingCount = sample._2.count(x => x != cls)
       (0, getMinorityClassLabel(matchingCount))
     }
   }
@@ -272,16 +175,16 @@ object Classifier {
     val positiveSamples = minorityStatus.filter(x => x._1 == 1).map(x => x._2)
     val negativeSamples = minorityStatus.filter(x => x._1 != 1).map(x => x._2)
 
-    val positiveSafeCount = positiveSamples.filter(x => (x == "safe")).length
-    val positiveBorderlineCount = positiveSamples.filter(x => (x == "borderline")).length
-    val positiveRareCount = positiveSamples.filter(x => (x == "rare")).length
-    val positiveOutlierCount = positiveSamples.filter(x => (x == "outlier")).length
+    val positiveSafeCount = positiveSamples.count(x => x == "safe")//filter(x => (x == "safe")).length
+    val positiveBorderlineCount = positiveSamples.count(x => x == "borderline")//filter(x => (x == "borderline")).length
+    val positiveRareCount = positiveSamples.count(x => x == "rare")//filter(x => (x == "rare")).length
+    val positiveOutlierCount = positiveSamples.count(x => x == "outlier")//filter(x => (x == "outlier")).length
     val positiveResults = "Positive: " + positiveSamples.length + "\nsafe: " + positiveSafeCount + " borderline: " + positiveBorderlineCount + " rare: " + positiveRareCount + " outlier: " + positiveOutlierCount
 
-    val negativeSafeCount = negativeSamples.filter(x => (x == "safe")).length
-    val negativeBorderlineCount = negativeSamples.filter(x => (x == "borderline")).length
-    val negativeRareCount = negativeSamples.filter(x => (x == "rare")).length
-    val negativeOutlierCount = negativeSamples.filter(x => (x == "outlier")).length
+    val negativeSafeCount = negativeSamples.count(x => x == "safe")//filter(x => (x == "safe")).length
+    val negativeBorderlineCount = negativeSamples.count(x => x == "borderline")//filter(x => (x == "borderline")).length
+    val negativeRareCount = negativeSamples.count(x => x == "rare")//filter(x => (x == "rare")).length
+    val negativeOutlierCount = negativeSamples.count(x => x == "outlier")//filter(x => (x == "outlier")).length
     val negativeResults = "Negative: " + negativeSamples.length + "\nsafe: " + negativeSafeCount + " borderline: " + negativeBorderlineCount + " rare: " + negativeRareCount + " outlier: " + negativeOutlierCount
 
     //println("\nClass " + name + "\n" + positiveResults + "\n" + negativeResults + "\n")
@@ -289,7 +192,7 @@ object Classifier {
 
   def getDistances2(current: Element, train: Array[Element]): NearestClassResultIndex = {
     val result = train.map(x => getDistanceValue(x, current)).sortBy(x => x._1).take(5)
-    val cls = current._2._1
+    //val cls = current._2._1
     (current._1, current._2._1, result.map(x => x._2))
   }
 
@@ -305,19 +208,20 @@ object Classifier {
   }
 
   def getSingleDistance(x: Array[Double], y: Array[Double]): Double = {
-    var distsance = 0.0
-    for(index<-0 to x.length-1) {
-      distsance += (x(index) -  y(index)) *(x(index) - y(index))
+    var distance = 0.0
+    //for(index<-0 to x.length-1) {
+    for(index<-x.indices) {
+      distance += (x(index) -  y(index)) *(x(index) - y(index))
     }
-    distsance
+    distance
   }
 
-  def getSmoteSample(data: Array[Array[Double]]): Unit = {
-    val convertToVector = udf((array: Seq[Double]) => {
-      Vectors.dense(array.map(_.toDouble).toArray)
-    })
+/*  def getSmoteSample(data: Array[Array[Double]]): Unit = {
+    //val convertToVector = udf((array: Seq[Double]) => {
+    //  Vectors.dense(array.map(_.toDouble).toArray)
+    //})
 
-    val results = data.map(x=>Vectors.dense(x.map(_.toDouble).toArray))
+    //val results = data.map(x=>Vectors.dense(x.map(_.toDouble).toArray))
     //println("DISTANCE: " +  Math.sqrt(fastSquaredDistance(results(0), Vectors.norm(results(0), 2), results(1), Vectors.norm(results(1), 2))))
     //val foo = new VectorWithNorm(results(0))
     //val foo2 = new VectorWithNorm(results(1))
@@ -328,20 +232,18 @@ object Classifier {
 
     //fastSquaredDistance
     //data.map(x=>data.map(y=>getSingleDistance(x, y)))
-  }
+  }*/
 
-  def mapRow(currentRow: Array[Any]) = {
+  def mapRow(currentRow: Array[Any]): (Int, Array[Float]) = {
     val reverseRow = currentRow.reverse
-    val cls = reverseRow.head.toString().toFloat.toInt
-    val features = reverseRow.tail.map(_.toString().toFloat)
+    val cls = reverseRow.head.toString.toFloat.toInt
+    val features = reverseRow.tail.map(_.toString.toFloat)
     (cls, features)
   }
 
   def calculateMinorityClasses(spark: SparkSession, trainData: DataFrame) {
-    //trainData.show()
-
-    val trainRDD = trainData.rdd.map(_.toSeq.toArray).map(x => mapRow(x))
-    trainRDD.count()
+      val trainRDD = trainData.rdd.map(_.toSeq.toArray).map(x => mapRow(x))
+    //trainRDD.count()
 
     //FIXME - is this better with broadcasting?
     val train_index = trainRDD.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
@@ -355,10 +257,10 @@ object Classifier {
     //println("**************************************************************")
 
     //println("***************** Minority Class Over/Under Resample ****************************")
-    val t0 = System.nanoTime()
+    //val t0 = System.nanoTime()
 
     val train_data_collected = train_index.collect()
-    val tX = System.nanoTime()
+    //val tX = System.nanoTime()
     //println("Time 1: " + (tX - t0) / 1.0e9 + "s")
 
     val minorityData = train_index.map(x => getDistances2(x, train_data_collected)).cache()
@@ -370,14 +272,14 @@ object Classifier {
     for (cls <- classes) {
       val res = rows.filter(x => x(0) == cls)
       //println()
-      getMinorityClassResults(cls, res(0)(1).toString(), minorityDataCollected.map(x => (x._2, x._3)))
+      getMinorityClassResults(cls, res(0)(1).toString, minorityDataCollected.map(x => (x._2, x._3)))
     }
   }
 
   def convertIndexedToName(cls: Int, indexedLabelNames: DataFrame): String = {
     val rows: Array[Row] = indexedLabelNames.collect
     val res = rows.filter(x => x(0) == cls)
-    return res(0)(1).toString()
+    res(0)(1).toString
   }
 
   def getIndexedLabelNames(df: DataFrame): DataFrame = {
@@ -392,7 +294,7 @@ object Classifier {
   def overSample(spark: SparkSession, df: DataFrame, numSamples: Int): DataFrame = {
     var samples = Array[Row]() //FIXME - make this more parallel
     //FIXME - some could be zero if split is too small
-    val samplesToAdd = numSamples - df.count()
+    //val samplesToAdd = numSamples - df.count()
     val currentCount = df.count()
     if (0 < currentCount && currentCount < numSamples) {
       val currentSamples = df.sample(true, (numSamples - currentCount) / currentCount.toDouble).collect()
@@ -413,10 +315,10 @@ object Classifier {
       samples = samples ++ currentSamples
       val foo = spark.sparkContext.parallelize(samples)
       val x = spark.sqlContext.createDataFrame(foo, df.schema)
-      return x
+      x
     }
     else {
-      return df
+      df
     }
   }
 
@@ -441,17 +343,17 @@ object Classifier {
     val currentCount = df.count()
     val cls = aggregatedCounts.take(1)(0)(0)
 
-    //println(cls + " "+ currentCount + " " + numSamples)
     var smoteSamples = ArrayBuffer[Row]()
     if (currentCount < numSamples) {
       val samplesToAdd = numSamples - currentCount
       val currentClassZipped = df.collect().zipWithIndex
 
+      //for (s <- 1 to samplesToAdd.toInt) {
       for (s <- 1 to samplesToAdd.toInt) {
         def r = randomInts.nextInt(currentClassZipped.length) //scala.util.Random.nextInt(currentClassZipped.length)
 
         val rand = Array(r, r, r, r, r)
-        val sampled: Array[Row] = currentClassZipped.filter(x => (rand.contains(x._2))).map(x => x._1) //FIXME - issues not taking duplicates
+        val sampled: Array[Row] = currentClassZipped.filter(x => rand.contains(x._2)).map(x => x._1) //FIXME - issues not taking duplicates
         //FIXME - can we dump the index column?
         val values: Array[Array[Double]] = sampled.map(x=>x(3).asInstanceOf[DenseVector].toArray)//.asInstanceOf[mutable.WrappedArray[Double]].toArray)
 
@@ -469,15 +371,13 @@ object Classifier {
 
     samples = samples ++ smoteSamples
     val currentArray = df.rdd.map(x=>Row(x(0), x(1), x(2), x(3).asInstanceOf[DenseVector])).collect()
-    //println(currentArray.take(1)(0))
-
     samples = samples ++ currentArray
 
     /*val convertToVector = udf((array: Seq[Double]) => {
       Vectors.dense(array.map(_.toDouble).toArray)
     })*/
 
-    val foo = samples.map(x=>x.toSeq).map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString(), x(3).asInstanceOf[DenseVector]))//asInstanceOf[mutable.WrappedArray[Double]]))
+    val foo = samples.map(x=>x.toSeq).map(x=>(x(0).toString.toInt, x(1).toString.toInt, x(2).toString, x(3).asInstanceOf[DenseVector]))//asInstanceOf[mutable.WrappedArray[Double]]))
 
     import df.sparkSession.implicits._
     val bar = spark.sparkContext.parallelize(foo).toDF()
@@ -486,36 +386,28 @@ object Classifier {
       .withColumnRenamed("_2", "label")
       .withColumnRenamed("_3", "minorityType")
       .withColumnRenamed("_4", "features")
-    //bar2.show()
 
     val finalDF = underSample(spark, bar2, numSamples) //FITME - check if this is the right number
-
-    //finalDF.show()
-
     finalDF //FIXME
   }
-
-
 
   def smotePlus(spark: SparkSession, df: DataFrame, numSamples: Int, predictions: DataFrame, clusterCount: Int): DataFrame = {
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
 
     val randomInts = new scala.util.Random(42L)
 
-
     var samples = ArrayBuffer[Row]() //FIXME - make this more parallel
     val currentCount = df.count()
     val cls = aggregatedCounts.take(1)(0)(0)
 
-    //println(cls + " "+ currentCount + " " + numSamples)
     var smoteSamples = ArrayBuffer[Row]()
     if (currentCount < numSamples) {
       val samplesToAdd = numSamples - currentCount
-      val currentClassZipped = df.collect().zipWithIndex
+      //val currentClassZipped = df.collect().zipWithIndex
 
       println("At spark Means")
 
-      val predictionsCollected = predictions.collect().map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString().toInt, x(3).toString(), x(4).asInstanceOf[DenseVector])).toSeq
+      val predictionsCollected = predictions.collect().map(x=>(x(0).toString.toInt, x(1).toString.toInt, x(2).toString.toInt, x(3).toString, x(4).asInstanceOf[DenseVector])).toSeq
       val clusteredData: Map[Int, Seq[(Int, Int, Int, String, DenseVector)]] = predictionsCollected.groupBy {_._1}
 
       for (s <- 1 to samplesToAdd.toInt) {
@@ -524,7 +416,7 @@ object Classifier {
 
         val clusterIndex = randomInts.nextInt(clusterCount)
         val len = clusteredData(clusterIndex).length //FIXME - add to map
-        def getSample: (Int, Int, Int, String, DenseVector) = clusteredData(clusterIndex)(randomInts.nextInt(len) ) //(0) //clusteredData(clusterIndex)(scala.util.Random.nextInt(5))
+        //def getSample: (Int, Int, Int, String, DenseVector) = clusteredData(clusterIndex)(randomInts.nextInt(len) ) //(0) //clusteredData(clusterIndex)(scala.util.Random.nextInt(5))
 
         val sampled: Array[(Int, Int, Int, String, DenseVector)] = Array.fill(clusterCount)(clusteredData(clusterIndex)(randomInts.nextInt(clusteredData(clusterIndex).length)))
 
@@ -544,9 +436,7 @@ object Classifier {
     }
 
     samples = samples ++ smoteSamples
-
-
-    df.show()
+    //df.show()
 
         //val currentArray = df.rdd.map(x=>Row(x(0), x(1), x(2), x(3).asInstanceOf[DenseVector])).collect()
     val currentArray = df.rdd.map(x=>Row(x(1), x(2), x(3), x(4).asInstanceOf[DenseVector])).collect()
@@ -558,10 +448,10 @@ object Classifier {
       Vectors.dense(array.map(_.toDouble).toArray)
     })*/
 
-    val foo = samples.map(x=>x.toSeq).map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString(), x(3).asInstanceOf[DenseVector]))//asInstanceOf[mutable.WrappedArray[Double]]))
+    val foo = samples.map(x=>x.toSeq).map(x=>(x(0).toString.toInt, x(1).toString.toInt, x(2).toString, x(3).asInstanceOf[DenseVector]))//asInstanceOf[mutable.WrappedArray[Double]]))
 
-    import df.sparkSession.implicits._
-    val bar = spark.sparkContext.parallelize(foo).toDF()
+    //import df.sparkSession.implicits._
+    val bar = spark.createDataFrame(spark.sparkContext.parallelize(foo))  //   createDataFrame(foo)  //spark.sparkContext.parallelize(foo).toDF()
 
     val bar2 = bar.withColumnRenamed("_1", "index")
       .withColumnRenamed("_2", "label")
@@ -571,24 +461,18 @@ object Classifier {
 
     val finalDF = underSample(spark, bar2, numSamples) //FITME - check if this is the right number
 
-    //finalDF.show()
-
     finalDF //FIXME
   }
 
-
-
   def getCountsByClass(spark: SparkSession, label: String, df: DataFrame): DataFrame = {
-    import spark.implicits._
-
     val numberOfClasses = df.select("label").distinct().count()
     val aggregatedCounts = df.groupBy(label).agg(count(label)).take(numberOfClasses.toInt) //FIXME
 
     val sc = spark.sparkContext
-    val countSeq = aggregatedCounts.map(x => (x(0).toString(), x(1).toString().toInt)).toSeq
+    val countSeq = aggregatedCounts.map(x => (x(0).toString, x(1).toString.toInt)).toSeq
     val rdd = sc.parallelize(countSeq)
 
-    rdd.toDF()
+    spark.createDataFrame(rdd)
   }
 
   //FIXME - cutoff does not seem to be used
@@ -600,12 +484,12 @@ object Classifier {
     println("^^^^^^^ distinct classes ^^^^^^^^^")
     d.show()
     println("^^^^^^^ distinct classes ^^^^^^^^^")
-    val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString().toInt)
+    val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString.toInt)
 
     val counts = getCountsByClass(spark, "label", df)
     counts.show()
-    val maxClassCount = counts.select("_2").agg(max("_2")).take(1)(0)(0).toString().toInt
-    val minClassCount = counts.select("_2").agg(min("_2")).take(1)(0)(0).toString().toInt
+    val maxClassCount = counts.select("_2").agg(max("_2")).take(1)(0)(0).toString.toInt
+    val minClassCount = counts.select("_2").agg(min("_2")).take(1)(0)(0).toString.toInt
 
     val overSampleCount = maxClassCount
     val underSampleCount = minClassCount
@@ -641,15 +525,15 @@ object Classifier {
     println("^^^^^^^ distinct classes ^^^^^^^^^")
     d.show()
     println("^^^^^^^ distinct classes ^^^^^^^^^")
-    val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString().toInt)
+    val presentClasses: Array[Int] = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString.toInt) //Array(1,2,3,4,5,6,7)    //
 
     val counts = getCountsByClass(spark, "label", df)
     counts.show()
-    val maxClassCount = counts.select("_2").agg(max("_2")).take(1)(0)(0).toString().toInt
-    val minClassCount = counts.select("_2").agg(min("_2")).take(1)(0)(0).toString().toInt
+    val maxClassCount = counts.select("_2").agg(max("_2")).take(1)(0)(0).toString.toInt
+    val minClassCount = counts.select("_2").agg(min("_2")).take(1)(0)(0).toString.toInt
 
-    val overSampleCount = maxClassCount
-    val underSampleCount = minClassCount
+    //val overSampleCount = maxClassCount
+    //val underSampleCount = minClassCount
     val smoteSampleCount = maxClassCount / 2
     var dfs: Array[DataFrame] = Array[DataFrame]()
 
@@ -677,219 +561,6 @@ object Classifier {
     sampleData(spark, pickedTypes, samplingMethod)
   }
 
-
-  /*def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String], samplingMethod: String, clusterKValue: Int, cutoff: Double=0.0): DataFrame = {
-
-    val combinedDf = if(samplingMethod == "smotePlus") {
-      val d = df.select("label").distinct()
-      val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString().toInt)
-      val clusterResults: Map[Int, DataFrame] = if(clusterKValue > 1) {
-        presentClasses.map(x=>getClassClusters(spark, x, df, clusterKValue)).toMap
-      }
-      else {
-        Map(0->df)
-      }
-
-      // clusterResults(1).show() --> prediction/index/label/minority type/features
-      //var clustersToKeep: Map[Int, Array[Int]] = Map()
-
-
-      var samples: Seq[(Int, Int, Int, String, DenseVector)] = Seq()
-      var isValid = true
-
-      for(classIndex<-clusterResults) {
-
-
-        var currentClassCount = 0
-        println("Class: " + classIndex._1)
-        val predictionsCollected: Seq[(Int, Int, Int, String, DenseVector)] = clusterResults(classIndex._1).collect().map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString().toInt, x(3).toString(), x(4).asInstanceOf[DenseVector])).toSeq
-        val clusteredData: Map[Int, Seq[(Int, Int, Int, String, DenseVector)]] = predictionsCollected.groupBy {_._1}
-
-        for(clusterIndex<- 0 to clusteredData.size-1) {
-          val dd: Seq[String] = clusteredData(clusterIndex).map(x=>x._4)
-          println("@Cluster " + clusterIndex + " length: " + clusteredData(clusterIndex).length)
-          //val clusterTypes: Map[String, Seq[(Int, Int, Int, String, DenseVector)]] = clusteredData(x).groupBy {_._4}
-          val minorityTypeCounts = dd.groupBy(identity).mapValues(_.size).filter(x=> (minorityTypes contains x._1))
-          println(dd.groupBy(identity).mapValues(_.size))
-          var countInCluster = 0
-          for(count <- minorityTypeCounts) {
-            println("\t" + count._1 + " " + count._2)
-            countInCluster += count._2
-            //if (count._2 > clusteredData(clusterIndex).length / 10) {
-            //  println("Including: " + count._1)
-            //}
-          }
-          println("at check: " + countInCluster  + " >= " + clusteredData(clusterIndex).length + " " + cutoff + " :"  + clusteredData(clusterIndex).length * cutoff)
-          if(countInCluster >= clusteredData(clusterIndex).length * cutoff) {
-            println("Keep cluster " + clusterIndex)
-            //samples = samples.union(df.filter(x=>(x)))
-            //println(clusteredData(clusterIndex)(0))
-
-            val values = clusteredData(clusterIndex).filter(x=>(x._1==clusterIndex && (minorityTypes contains x._4))).map(x=>(x._1, x._2, x._3, x._4, x._5))
-            currentClassCount += values.size
-            samples = samples.union(values)
-          }
-          else {
-            println("Dont keep cluster " + clusterIndex)
-          }
-        }
-        if(currentClassCount == 0) {
-          print("------> ERROR: Class " + classIndex + " is empty")
-          isValid = false
-           return spark.sqlContext.emptyDataFrame
-        }
-
-
-
-
-      }
-
-      val combinedDf = if(isValid) {
-        println("New Counts: " + samples.length)
-
-        println("~~~~~~~ At Resample bottom~~~~~~~~```")
-        import df.sparkSession.implicits._
-        //FIXME - some could be zero if split is too small
-        val bar = spark.sparkContext.parallelize(samples).toDF()
-
-        //bar.show()
-
-       // assert(false)
-        val pickedTypes = bar.withColumnRenamed("_1", "cluster")
-          .withColumnRenamed("_2", "index")
-          .withColumnRenamed("_3", "label")
-          .withColumnRenamed("_4", "minorityType")
-          .withColumnRenamed("_5", "features").sort(col("index"))
-
-        //pickedTypes.show()
-        //pickedTypes.sort(col("index")).show()
-        //val pickedTypes2 = df.filter(x => minorityTypes contains x(2) ) //FIXME - might be unneeded
-        //pickedTypes2.show()
-
-        //pickedTypes.printSchema()
-
-        //val pickedTypes = samples
-
-        //val pickedTypes = df.filter(x => (minorityTypes contains (x(2))) && true )
-
-        println("Picked samples count: " + pickedTypes.count())
-        pickedTypes.show()
-        assert(false)
-        //FIXME - avoid passing spark as parameter?
-        //val combinedDf = sampleData(spark, pickedTypes, "smote")
-        //combinedDf
-        sampleData(spark, pickedTypes, "smote")
-
-      }
-      else{
-        spark.sqlContext.emptyDataFrame
-      }
-
-
-
-
-      combinedDf
-
-
-
-
-
-      //FIXME - some could be zero if split is too small
-      //val pickedTypes = df.filter(x => (minorityTypes contains (x(2))))
-
-      //val clusterResults: Map[Int, DataFrame] = Map(0->spark.sqlContext.emptyDataFrame)
-      //FIXME - avoid passing spark as parameter?
-      //sampleDataSmotePlus(spark, pickedTypes, samplingMethod, clusterResults, cutoff)
-    }
-    else {
-      //FIXME - some could be zero if split is too small
-      val pickedTypes = df.filter(x => (minorityTypes contains (x(2))))
-
-      //val clusterResults: Map[Int, DataFrame] = Map(0->spark.sqlContext.emptyDataFrame)
-      //FIXME - avoid passing spark as parameter?
-      sampleData(spark, pickedTypes, samplingMethod)
-    }
-
-    combinedDf
-  }*/
-
-  /*def minorityTypeResample(spark: SparkSession, df: DataFrame, minorityTypes: Array[String], samplingMethod: String, clusterResults: Map[Int,DataFrame], cutoff: Double=0.0): DataFrame = {
-    println("~~~~~~~ At Resample top~~~~~~~~")
-
-   var samples: Seq[(Int, Int, String, DenseVector)] = Seq()
-    var isValid = true
-
-    for(classIndex<-clusterResults) {
-      var currentClassCount = 0
-      println("Class: " + classIndex._1)
-      val predictionsCollected: Seq[(Int, Int, Int, String, DenseVector)] = clusterResults(classIndex._1).collect().map(x=>(x(0).toString().toInt, x(1).toString().toInt, x(2).toString().toInt, x(3).toString(), x(4).asInstanceOf[DenseVector])).toSeq
-      val clusteredData: Map[Int, Seq[(Int, Int, Int, String, DenseVector)]] = predictionsCollected.groupBy {_._1}
-
-      for(clusterIndex<- 0 to clusteredData.size-1) {
-        val dd: Seq[String] = clusteredData(clusterIndex).map(x=>x._4)
-        println("@Cluster " + clusterIndex + " length: " + clusteredData(clusterIndex).length)
-        //val clusterTypes: Map[String, Seq[(Int, Int, Int, String, DenseVector)]] = clusteredData(x).groupBy {_._4}
-        var minorityTypeCounts = dd.groupBy(identity).mapValues(_.size).filter(x=> (minorityTypes contains x._1))
-        println(dd.groupBy(identity).mapValues(_.size))
-        var countInCluster = 0
-        for(count <- minorityTypeCounts) {
-          println("\t" + count._1 + " " + count._2)
-          countInCluster += count._2
-          //if (count._2 > clusteredData(clusterIndex).length / 10) {
-          //  println("Including: " + count._1)
-          //}
-        }
-          if(countInCluster >= clusteredData(clusterIndex).length * 0.05) {
-            println("Keep cluster " + clusterIndex)
-            //samples = samples.union(df.filter(x=>(x)))
-            //println(clusteredData(clusterIndex)(0))
-            val values = clusteredData(clusterIndex).filter(x=>(x._1==clusterIndex && (minorityTypes contains x._4))).map(x=>(x._2, x._3, x._4, x._5))
-            currentClassCount += values.size
-            samples = samples.union(values)
-          }
-          else {
-            println("Dont keep cluster " + clusterIndex)
-         }
-        }
-        if(currentClassCount == 0) {
-          print("------> ERROR: Class " + classIndex + " is empty")
-          isValid = false
-        }
-      }
-
-    if(isValid) {
-      println("New Counts: " + samples.length)
-      println("~~~~~~~ At Resample bottom~~~~~~~~```")
-      import df.sparkSession.implicits._
-      //FIXME - some could be zero if split is too small
-      val bar = spark.sparkContext.parallelize(samples).toDF()
-
-      val pickedTypes = bar.withColumnRenamed("_1", "index")
-        .withColumnRenamed("_2", "label")
-        .withColumnRenamed("_3", "minorityType")
-        .withColumnRenamed("_4", "features").sort(col("index"))
-
-      //pickedTypes.show()
-      //pickedTypes.sort(col("index")).show()
-      val pickedTypes2 = df.filter(x => (minorityTypes contains (x(2))) && true ) //FIXME
-      pickedTypes2.show()
-      //pickedTypes.printSchema()
-
-      //val pickedTypes = samples
-
-      //val pickedTypes = df.filter(x => (minorityTypes contains (x(2))) && true )
-
-      println("Picked samples count: " + pickedTypes.count())
-
-      //FIXME - avoid passing spark as parameter?
-      val combinedDf = sampleData(spark, pickedTypes, samplingMethod, clusterResults, cutoff)
-      combinedDf
-    }
-    else{
-      spark.sqlContext.emptyDataFrame
-    }
-  }*/
-
   def convertFeaturesToVector(df: DataFrame): DataFrame = {
     val spark = df.sparkSession
     import spark.implicits._
@@ -905,8 +576,8 @@ object Classifier {
   def runClassifierMinorityType(train: DataFrame, test: DataFrame): String = {
     val spark = train.sparkSession
     //FIXME - don't collect twice
-    val maxLabel: Int = test.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).max
-    val minLabel: Int = test.select("label").distinct().collect().map(x => x.toSeq.last.toString().toDouble.toInt).min
+    val maxLabel: Int = test.select("label").distinct().collect().map(x => x.toSeq.last.toString.toDouble.toInt).max
+    val minLabel: Int = test.select("label").distinct().collect().map(x => x.toSeq.last.toString.toDouble.toInt).min
     val inputCols = test.columns.filter(_ != "label")
 
     val classifier = new RandomForestClassifier().setNumTrees(10).
@@ -925,7 +596,7 @@ object Classifier {
 
     val confusionMatrix = predictions.
       groupBy("label").
-      pivot("prediction", (minLabel to maxLabel)).
+      pivot("prediction", minLabel to maxLabel).
       //pivot("prediction", (0 to maxLabel)).
       count().
       na.fill(0.0).
@@ -1007,29 +678,22 @@ object Classifier {
 
       val currentLabel = groupedDF.filter(col("label").===(currentClass)).collect()
       for(minorityType<-currentLabel) {
-        minorityTypeMap += minorityType(1).toString -> minorityType(2).toString().toInt
+        minorityTypeMap += minorityType(1).toString -> minorityType(2).toString.toInt
       }
       //println("Class: " + currentClass + " safe: " + minorityTypeMap("safe") + " borderline: " + minorityTypeMap("borderline") +
       //  " rare: " + minorityTypeMap("rare") + "  outlier: " + minorityTypeMap("outlier"))
     }
   }
-  def runSparkNN(trainData: DataFrame, testData: DataFrame, samplingMethod: String, minorityTypes: Array[Array[String]], enableDataScaling: Boolean): String = {
-    //println("^^^ train ^^^^")
-    //getCountsByClass(trainData.sparkSession, "label", trainData).show()
-    //println("^^^ test ^^^^")
-    //getCountsByClass(testData.sparkSession, "label", testData).show()
-
+  def runSparkNN(trainData: DataFrame, testData: DataFrame, samplingMethod: String, minorityTypes: Array[Array[String]]): String = {
     println("AT RUN SPARK NN")
     trainData.show()
-    //println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
-    //trainData.printSchema()
+
     var currentResults = ""
     if(samplingMethod == "smotePlus") {
       for(clusterKValue <- clusterKValues) {
         val d = trainData.select("label").distinct()
-        val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString().toInt)
+        val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString.toInt)
         val clusterResults: Map[Int, DataFrame] = presentClasses.map(x=>getClassClusters(trainData.sparkSession, x, trainData, clusterKValue)).toMap
-
 
         var samples: Seq[(Int, Int, Int, String, DenseVector)] = Seq()
         var isValid = true
@@ -1043,17 +707,17 @@ object Classifier {
 
               var currentClassCount = 0
               println("Class: " + classIndex._1)
-              val predictionsCollected: Seq[(Int, Int, Int, String, DenseVector)] = clusterResults(classIndex._1).collect().map(x => (x(0).toString().toInt, x(1).toString().toInt, x(2).toString().toInt, x(3).toString(), x(4).asInstanceOf[DenseVector])).toSeq
+              val predictionsCollected: Seq[(Int, Int, Int, String, DenseVector)] = clusterResults(classIndex._1).collect().map(x => (x(0).toString.toInt, x(1).toString.toInt, x(2).toString.toInt, x(3).toString, x(4).asInstanceOf[DenseVector])).toSeq
               val clusteredData: Map[Int, Seq[(Int, Int, Int, String, DenseVector)]] = predictionsCollected.groupBy {
                 _._1
               }
 
-              for (clusterIndex <- 0 to clusteredData.size - 1) {
+              for (clusterIndex <- 0 until clusteredData.size) {
                 val dd: Seq[String] = clusteredData(clusterIndex).map(x => x._4)
                 println("@Cluster " + clusterIndex + " length: " + clusteredData(clusterIndex).length)
                 //val clusterTypes: Map[String, Seq[(Int, Int, Int, String, DenseVector)]] = clusteredData(x).groupBy {_._4}
 
-                val minorityTypeCounts = dd.groupBy(identity).mapValues(_.size).filter(x => minorityTypes contains x._1)
+                //val minorityTypeCounts = dd.groupBy(identity).mapValues(_.size).filter(x => minorityTypes contains x._1)
                 println(dd.groupBy(identity).mapValues(_.size))
 
                 var countInCluster = 0
@@ -1068,10 +732,10 @@ object Classifier {
                 if (countInCluster >= clusteredData(clusterIndex).length * cutoff) {
                   println("Keep cluster " + clusterIndex)
                   //samples = samples.union(df.filter(x=>(x)))
-                  println(clusteredData(clusterIndex)(0))
+                  println(clusteredData(clusterIndex).head)
 
                   val values = clusteredData(clusterIndex).filter(x => x._1 == clusterIndex && (currentMinorityTypes contains x._4)).map(x => (x._1, x._2, x._3, x._4, x._5))
-                  println("valuess size: " + clusteredData(clusterIndex).filter(x => x._1 == clusterIndex && (currentMinorityTypes contains x._4)).size)
+                  println("values size: " + clusteredData(clusterIndex).count(x => x._1 == clusterIndex && (currentMinorityTypes contains x._4)))//filter(x => x._1 == clusterIndex && (currentMinorityTypes contains x._4)).size)
                   currentClassCount += values.size
                   samples = samples.union(values)
                 }
@@ -1143,16 +807,10 @@ object Classifier {
             // }
           }
         } // End of minority type loop
-
-
-
         ""
-
       }
-
     }
     else {
-
       for(currentTypes<-minorityTypes) {
         var currentTypesString = "["
         for (item <- currentTypes) {
@@ -1241,19 +899,19 @@ object Classifier {
 
     val nearestLabels = Array[Int]()
     def getLabel(neighbor: Any): Int = {
-      val index = neighbor.toString().indexOf(",")
-      neighbor.toString().substring(1, index).toInt
+      val index = neighbor.toString.indexOf(",")
+      neighbor.toString.substring(1, index).toInt
     }
 
     val currentLabel = getLabel(wrappedArray(0))
     var currentCount = 0
-    for(i<-1 to wrappedArray.length-1) {
+    for(i<-1 until wrappedArray.length) {
       nearestLabels :+ getLabel(wrappedArray(i))
       if (getLabel(wrappedArray(i)) == currentLabel) {
         currentCount += 1
       }
     }
-    val currentArray = features.toString().substring(1, features.toString().length-1).split(",").map(x=>x.toDouble)
+    val currentArray = features.toString.substring(1, features.toString.length-1).split(",").map(x=>x.toDouble)
     (index, currentLabel, getMinorityClassLabel(currentCount), currentArray)//features.toString().asInstanceOf[mutable.WrappedArray[Double]])
   }
 
@@ -1298,8 +956,6 @@ object Classifier {
     // args.foreach(println)
     // println("*****")
 
-
-
     val input_file = args(0)
     val labelColumnName = args(1)
 
@@ -1311,27 +967,20 @@ object Classifier {
 
     val rw =
       if(args.length > 6) {
-        if(args(6) == "read") Array("read", args(7).toString())
-        else if(args(6)=="write") Array("write", args(7).toString())
+        if(args(6) == "read") Array("read", args(7).toString)
+        else if(args(6)=="write") Array("write", args(7).toString)
         else Array("","")
       }
       else { Array("","") }
 
-    //println(rw)
-    val clusterCountXX = args(8).toInt
-
-    //println("*****")
-    //println("Args:")
-    //println(args.length)
+    //val clusterCountXX = args(8).toInt
     args.foreach(println)
-    //println("*****")
 
     val samplingMethods = ArrayBuffer[String]()
-    for(i<- 9 to args.length-1) {
+    for(i<- 9 until args.length) {
       samplingMethods += args(i)
     }
     samplingMethods.foreach(println)
-
 
     val df1 = spark.read.
       option("inferSchema", true).
@@ -1347,28 +996,25 @@ object Classifier {
     var minorityTypes = Array[Array[String]]()
 
     //for(i<-0 to 0) {
-     for(i<-0 to 14) {
-      var currentMinorityTypes = Array[String]()
-      if (0 != (i & 1)) false else {
-        currentMinorityTypes = currentMinorityTypes :+ "safe"
-      }
-      if (0 != (i & 2)) false else {
-        currentMinorityTypes = currentMinorityTypes :+ "borderline"
-      }
-      if (0 != (i & 4)) false else {
-        currentMinorityTypes = currentMinorityTypes :+ "rare"
-      }
-      if (0 != (i & 8)) false else {
-        currentMinorityTypes = currentMinorityTypes :+ "outlier"
-      }
+     for(i<-0 to 1) {
+       var currentMinorityTypes = Array[String]()
+       if (0 != (i & 1)) false else {
+         currentMinorityTypes = currentMinorityTypes :+ "safe"
+       }
+       if (0 != (i & 2)) false else {
+         currentMinorityTypes = currentMinorityTypes :+ "borderline"
+       }
+       if (0 != (i & 4)) false else {
+         currentMinorityTypes = currentMinorityTypes :+ "rare"
+       }
+       if (0 != (i & 8)) false else {
+         currentMinorityTypes = currentMinorityTypes :+ "outlier"
+       }
 
-      //currentMinorityTypes = Array[String]("rare", "outlier")//FIXME
-      minorityTypes = minorityTypes :+ currentMinorityTypes
+       //currentMinorityTypes = Array[String]("rare", "outlier")//FIXME
+       minorityTypes = minorityTypes :+ currentMinorityTypes
 
-    }
-
-
-
+     }
 
     /*************************************************************/
     import df.sparkSession.implicits._
@@ -1379,8 +1025,8 @@ object Classifier {
 
     val data = train_index.map({ r =>
       val array = r._2.toSeq.toArray.reverse
-      val cls = array.head.toString().toDouble.toInt
-      val rowMapped: Array[Double] = array.tail.map(_.toString().toDouble)
+      val cls = array.head.toString.toDouble.toInt
+      val rowMapped: Array[Double] = array.tail.map(_.toString.toDouble)
       //NOTE - This needs to be back in the original order to train/test works correctly
       (r._1, cls, rowMapped.reverse)
     })
@@ -1401,15 +1047,9 @@ object Classifier {
       scaledData.drop("features").withColumnRenamed("scaledFeatures", "features")
     } else { converted }
 
-
-    //scaledData.show(50)
-    //scaledData.filter(scaledData("index") < 25).show(50)
-    //val foo = scaledData.filter(scaledData("index") < 100000)
-
     val numSplits = 1
     val counts = scaledData.count()
     var cuts = Array[Int]()
-    //println("count: " + counts)
 
     cuts :+= 0
 
@@ -1417,7 +1057,7 @@ object Classifier {
       cuts :+= (counts * 0.2).toInt
     }
     else {
-      for(i <- 1 to (numSplits - 1)) {
+      for(i <- 1 until numSplits) {
         cuts :+= ((counts / numSplits) * i).toInt
         //cuts :+= 2000
       }
@@ -1442,7 +1082,7 @@ object Classifier {
           option("header", true).
           csv(rw(1))
 
-        val stringToArray = udf((item: String)=>item.dropRight(1).drop(1).split(",").map(x=>x.toString().toDouble))
+        val stringToArray = udf((item: String)=>item.dropRight(1).drop(1).split(",").map(x=>x.toString.toDouble))
 
         readData.withColumn("features", stringToArray(col("features")))
       }
@@ -1458,8 +1098,7 @@ object Classifier {
         val results2: DataFrame = model.transform(scaledData)
 
         val collected: Array[Row] = results2.select( "neighbors", "index", "features").collect()
-        //results2.show()
-        val minorityValueDF: Array[(Int, Int, String, mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString().toInt, x._3))
+        val minorityValueDF: Array[(Int, Int, String, mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString.toInt, x._3))
 
         val minorityDF = scaledData.sparkSession.sparkContext.parallelize(minorityValueDF).toDF()
           .withColumnRenamed("_1","index")
@@ -1479,19 +1118,12 @@ object Classifier {
             save(rw(1))
         }
 
-
         minorityDF
       }
 
-    //print("~~~~~~~ Minorty DF ~~~~~~~~~~~")
-    //minorityDF.show()
-
-    //  minorityDF.write.format("com.databricks.spark.csv").option("header", "true").save(savePath)
-
-
     /***********************************/
 
-    for(cutIndex<-0 to numSplits-1) {
+    for(cutIndex<-0 until numSplits) {
       //println(cuts(cutIndex) + " " + (cuts(cutIndex+1)))
 
 
@@ -1524,8 +1156,8 @@ object Classifier {
 
       import java.io.File
 
-      var savePathString = savePath + "/" + fileDescription + "/k" // + clusterCount.toString
-      var saveDirectory = new File(savePathString)
+      val savePathString = savePath + "/" + fileDescription + "/k" // + clusterCount.toString
+      val saveDirectory = new File(savePathString)
       if(!saveDirectory.exists()) {
         saveDirectory.mkdirs()
       }
@@ -1540,7 +1172,7 @@ object Classifier {
           println("method: " + method)
 
           //writer.write(runSparkNN(preppedDataUpdated, method, minorityTypes, true))
-          writer.write(runSparkNN(minorityDFFold, testData, method, minorityTypes, true))
+          writer.write(runSparkNN(minorityDFFold, testData, method, minorityTypes))
         }
         writer.close()
 
