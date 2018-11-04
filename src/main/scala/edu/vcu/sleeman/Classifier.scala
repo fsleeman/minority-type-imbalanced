@@ -21,8 +21,8 @@ import org.apache.spark.ml.knn.KNN
 import org.apache.spark.ml.feature.MinMaxScaler
 import org.apache.spark.ml.clustering.KMeans
 
-import scala.util.Try
-import scala.util.{Success,Failure}
+import scala.collection.parallel.immutable.ParSeq
+import scala.util.{Failure, Random, Success, Try}
 
 
 //FIXME - turn classes back to Ints instead of Doubles
@@ -392,14 +392,30 @@ object Classifier {
     //finalDF //FIXME
   }
 
+
+  def YYY(cls: Int, currentCount: Long, clusterIds: Seq[Int], clusteredData: Map[Int, Seq[(Int, Int, Int, Int, DenseVector)]], clusterCount: Int, randomInts: Random): Row = {
+    val clusterIndex = clusterIds(randomInts.nextInt(clusterIds.length))
+    val sampled: Array[(Int, Int, Int, Int, DenseVector)] = Array.fill(clusterCount)(clusteredData(clusterIndex)(randomInts.nextInt(clusteredData(clusterIndex).length)))
+
+    //FIXME - can we dump the index column?
+    val values: Array[Array[Double]] = sampled.map(x=>x._5.asInstanceOf[DenseVector].toArray)
+
+    val ddd: Array[Double] = values.transpose.map(_.sum /values.length)
+    val r2 = Row(0, cls, 0,  Vectors.dense(ddd.map(_.toDouble)))
+
+    //FIXME - convert this to DenseVector
+    r2
+  }
+
+
   def smotePlus(spark: SparkSession, df: DataFrame, numSamples: Int, predictions: DataFrame, clusterCount: Int): DataFrame = {
     val aggregatedCounts = df.groupBy("label").agg(count("label"))
 
-    val randomInts = new scala.util.Random(42L)
+    val randomInts: Random = new scala.util.Random(42L)
 
     var samples = ArrayBuffer[Row]() //FIXME - make this more parallel
-    val currentCount = df.count()
-    val cls = aggregatedCounts.take(1)(0)(0)
+    val currentCount: Long = df.count()
+    val cls = aggregatedCounts.take(1)(0)(0).toString.toInt
 
     var smoteSamples = ArrayBuffer[Row]()
     println("current count: "  + currentCount)
@@ -411,13 +427,21 @@ object Classifier {
 
       val predictionsCollected = predictions.collect().map(x=>(x(0).toString.toInt, x(1).toString.toInt, x(2).toString.toInt, x(3).toString.toInt, x(4).asInstanceOf[DenseVector])).toSeq
       val clusteredData: Map[Int, Seq[(Int, Int, Int, Int, DenseVector)]] = predictionsCollected.groupBy {_._1}
+      val clusterIds: Seq[Int] = clusteredData.map(x=>x._1).toSeq
 
       println("samplesToAdd: "  + samplesToAdd)
-      for (s <- 1 to samplesToAdd.toInt) {
+
+
+
+      val t01 = System.nanoTime()
+      /*for (s <- 1 to samplesToAdd.toInt) {
 
         //def clusterIndex = randomInts.nextInt(clusterCount)//scala.util.Random.nextInt(clusterCount)
 
-        val clusterIndex = randomInts.nextInt(clusterCount)
+        //val clusterIndex = randomInts.nextInt(clusterCount)
+        val clusterIndex = clusterIds(randomInts.nextInt(clusterIds.length))
+
+
         //val len = clusteredData(clusterIndex).length //FIXME - add to map
         //def getSample: (Int, Int, Int, String, DenseVector) = clusteredData(clusterIndex)(randomInts.nextInt(len) ) //(0) //clusteredData(clusterIndex)(scala.util.Random.nextInt(5))
 
@@ -431,14 +455,21 @@ object Classifier {
 
         //FIXME - convert this to DenseVector
         smoteSamples += r2
-      }
+      }*/
+
+      val XXX: ParSeq[Row] = (1 to samplesToAdd.toInt).par.map { _ => YYY(cls: Int, currentCount: Long, clusterIds: Seq[Int], clusteredData: Map[Int, Seq[(Int, Int, Int, Int, DenseVector)]], clusterCount: Int, randomInts: Random) }// .reduce(_ ++ _)
+      samples = samples ++ XXX
+      val t11 = System.nanoTime()
+      println("--------- LOOP TIME: " + (t11 - t01) / 1e9 + "s")
 
     }
     else {
       // we already have enough samples, skip
     }
 
-    samples = samples ++ smoteSamples
+    val tX = System.nanoTime()
+
+    //samples = samples ++ smoteSamples
     //df.show()
 
         //val currentArray = df.rdd.map(x=>Row(x(0), x(1), x(2), x(3).asInstanceOf[DenseVector])).collect()
@@ -463,6 +494,8 @@ object Classifier {
       .withColumnRenamed("_4", "features")
     //bar2.show()
     //println("before under: " + bar2.count())
+    val tY = System.nanoTime()
+    println("--------- Combine Time: " + (tY - tX) / 1e9 + "s")
     bar2
     //val finalDF = underSample(spark, bar2, numSamples) //FIXME - check if this is the right number - something might not be right with SMOTE counts
     //finalDF //FIXME
@@ -711,8 +744,9 @@ object Classifier {
               val clusteredData: Map[Int, Seq[(Int, Int, Int, Int, DenseVector)]] = predictionsCollected.groupBy {
                 _._1
               }
+              println("************************** " + clusteredData.size)
 
-              for (clusterIndex <- 0 until clusteredData.size) {
+              /*for (clusterIndex <- 0 until clusteredData.size) {
                 val dd: Seq[Int] = clusteredData(clusterIndex).map(x => x._4)
                 println("@Cluster " + clusterIndex + " length: " + clusteredData(clusterIndex).length)
                 //val clusterTypes: Map[String, Seq[(Int, Int, Int, String, DenseVector)]] = clusteredData(x).groupBy {_._4}
@@ -741,6 +775,42 @@ object Classifier {
                 }
                 else {
                   println("Dont keep cluster " + clusterIndex)
+                }
+              }*/
+
+              for (currentCluster<-clusteredData) {
+                //val foo: (Int, Seq[(Int, Int, Int, Int, DenseVector)]) = currentCluster
+                val currentClusterIndex = currentCluster._1
+                val currentClusterData = currentCluster._2
+                val dd: Seq[Int] = currentClusterData.map(x => x._4)
+
+                //println("@Cluster " + clusterIndex + " length: " + clusteredData(clusterIndex).length)
+                //val clusterTypes: Map[String, Seq[(Int, Int, Int, String, DenseVector)]] = clusteredData(x).groupBy {_._4}
+
+                //val minorityTypeCounts = dd.groupBy(identity).mapValues(_.size).filter(x => minorityTypes contains x._1)
+                println(dd.groupBy(identity).mapValues(_.size))
+
+                var countInCluster = 0
+                for (count <- dd.groupBy(identity).mapValues(_.size)) {
+                  println("\t" + count._1 + " " + count._2)
+                  countInCluster += count._2
+                  //if (count._2 > clusteredData(clusterIndex).length / 10) {
+                  //  println("Including: " + count._1)
+                  //}
+                }
+                println("at check: " + countInCluster + " >= " + currentClusterData.length + " " + cutoff + " :" + currentClusterData.length * cutoff)
+                if (countInCluster >= currentClusterData.length * cutoff) {
+                  println("Keep cluster " + currentClusterIndex)
+                  //samples = samples.union(df.filter(x=>(x)))
+                  println(currentClusterData.head)
+                  //FIXME - probably don't need to check the index, should be determined by current loop
+                  val values = currentClusterData.filter(x => x._1 == currentClusterIndex && (currentMinorityTypes contains x._4)).map(x => (x._1, x._2, x._3, x._4, x._5))
+                  println("values size: " + currentClusterData.count(x => x._1 == currentClusterIndex && (currentMinorityTypes contains x._4)))//filter(x => x._1 == clusterIndex && (currentMinorityTypes contains x._4)).size)
+                  currentClassCount += values.size
+                  samples = samples.union(values)
+                }
+                else {
+                  println("Dont keep cluster " + currentClusterIndex)
                 }
               }
               if (currentClassCount == 0) {
@@ -931,6 +1001,7 @@ object Classifier {
       val convertedDF = convertFeaturesToVector(currentCase)
       val model2 = kmeans.fit(convertedDF)
       // Make predictions
+      println("^^^^^^ cluster count: " + model2.clusterCenters.length)
       val predictions = model2.transform(convertedDF).select("prediction", "index", "label", "minorityType", "features").cache()
       (l, predictions)
     }
@@ -1006,7 +1077,7 @@ object Classifier {
     var minorityTypes = Array[Array[Int]]()
 
     //for(i<-0 to 0) {
-     for(i<-0 to 14) {
+     for(i<-0 to 3) {
        var currentMinorityTypes = Array[Int]()
        if (0 != (i & 1)) false else {
          currentMinorityTypes = currentMinorityTypes :+ 0
@@ -1057,7 +1128,7 @@ object Classifier {
       scaledData.drop("features").withColumnRenamed("scaledFeatures", "features")
     } else { converted }
 
-    val numSplits = 3
+    val numSplits = 1
     val counts = scaledData.count()
     var cuts = Array[Int]()
 
@@ -1130,7 +1201,7 @@ object Classifier {
         println("------------ Minority DF")
         minorityDF.show()
         minorityDF
-      }
+      }.cache()
 
     /***********************************/
 
