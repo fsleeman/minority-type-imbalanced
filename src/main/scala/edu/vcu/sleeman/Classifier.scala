@@ -28,7 +28,7 @@ import scala.util.{Failure, Random, Success, Try}
 //FIXME - turn classes back to Ints instead of Doubles
 object Classifier {
 
-  val clusterKValues: Array[Int] = Array(25)
+  val clusterKValues: Array[Int] = Array(2)
   val cutoffs: Array[Double] = Array(0.0)
   var results = ""
 
@@ -266,11 +266,11 @@ object Classifier {
     val indexedLabelNames = getIndexedLabelNames(trainData)
     val rows: Array[Row] = indexedLabelNames.collect
 
-    for (cls <- classes) {
+    /*for (cls <- classes) {
       val res = rows.filter(x => x(0) == cls)
       //println()
       //printMinorityClassResults(cls, res(0)(1).toString, minorityDataCollected.map(x => (x._2, x._3)))
-    }
+    }*/
   }
 
   def convertIndexedToName(cls: Int, indexedLabelNames: DataFrame): String = {
@@ -723,10 +723,14 @@ object Classifier {
 
     var currentResults = ""
     if(samplingMethod == "smotePlus") {
+
+      val d = trainData.select("label").distinct()
+      val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString.toInt)
+
       for(clusterKValue <- clusterKValues) {
-        val d = trainData.select("label").distinct()
-        val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString.toInt)
+
         val clusterResults: Map[Int, DataFrame] = presentClasses.map(x=>getClassClusters(trainData.sparkSession, x, trainData, clusterKValue)).toMap
+
 
         var samples: Seq[(Int, Int, Int, Int, DenseVector)] = Seq()
         var isValid = true
@@ -740,7 +744,7 @@ object Classifier {
 
               var currentClassCount = 0
               println("Class: " + classIndex._1)
-              val predictionsCollected: Seq[(Int, Int, Int, Int, DenseVector)] = clusterResults(classIndex._1).collect().map(x => (x(0).toString.toInt, x(1).toString.toInt, x(2).toString.toInt, x(3).toString.toInt, x(4).asInstanceOf[DenseVector])).toSeq
+              val predictionsCollected: Seq[(Int, Int, Int, Int, DenseVector)] = clusterResults(classIndex._1).collect().map(x => (x(0).toString.toInt, x(1).toString.toInt, x(2).toString.toInt, x(3).toString.toInt, x(4).asInstanceOf[DenseVector])).toSeq // FIXME - parallelize, should DF not Seq?
               val clusteredData: Map[Int, Seq[(Int, Int, Int, Int, DenseVector)]] = predictionsCollected.groupBy {
                 _._1
               }
@@ -788,7 +792,7 @@ object Classifier {
                 //val clusterTypes: Map[String, Seq[(Int, Int, Int, String, DenseVector)]] = clusteredData(x).groupBy {_._4}
 
                 //val minorityTypeCounts = dd.groupBy(identity).mapValues(_.size).filter(x => minorityTypes contains x._1)
-                println(dd.groupBy(identity).mapValues(_.size))
+                //println(dd.groupBy(identity).mapValues(_.size))
 
                 var countInCluster = 0
                 for (count <- dd.groupBy(identity).mapValues(_.size)) {
@@ -880,7 +884,11 @@ object Classifier {
         } // End of minority type loop
 
       }
-    }
+    } /// end if smote plus
+
+
+
+
     else {
       for(currentTypes<-minorityTypes) {
         var currentTypesString = "["
@@ -1002,7 +1010,7 @@ object Classifier {
       val model2 = kmeans.fit(convertedDF)
       // Make predictions
       println("^^^^^^ cluster count: " + model2.clusterCenters.length)
-      val predictions = model2.transform(convertedDF).select("prediction", "index", "label", "minorityType", "features").cache()
+      val predictions = model2.transform(convertedDF).select("prediction", "index", "label", "minorityType", "features")//.cache() //FIXME - chech cache
       (l, predictions)
     }
     result
@@ -1068,7 +1076,7 @@ object Classifier {
       option("header", useHeader).
       csv(input_file)
 
-    val df = df1.repartition(8)
+    val df = df1//.repartition(8)
     val preppedDataUpdated1 = df.withColumnRenamed(labelColumnName, "label")
 
     def func(column: Column) = column.cast(DoubleType)
@@ -1091,10 +1099,8 @@ object Classifier {
        if (0 != (i & 8)) false else {
          currentMinorityTypes = currentMinorityTypes :+ 3
        }
-
        //currentMinorityTypes = Array[String]("rare", "outlier")//FIXME
        minorityTypes = minorityTypes :+ currentMinorityTypes
-
      }
 
     /*************************************************************/
@@ -1126,7 +1132,7 @@ object Classifier {
       val scalerModel = scaler.fit(converted)
       val scaledData: DataFrame = scalerModel.transform(converted)
       scaledData.drop("features").withColumnRenamed("scaledFeatures", "features")
-    } else { converted }
+    } else { converted }.cache()
 
     val numSplits = 1
     val counts = scaledData.count()
@@ -1201,7 +1207,7 @@ object Classifier {
         println("------------ Minority DF")
         minorityDF.show()
         minorityDF
-      }.cache()
+      }.persist()
 
     /***********************************/
 
@@ -1209,8 +1215,8 @@ object Classifier {
       //println(cuts(cutIndex) + " " + (cuts(cutIndex+1)))
 
 
-      val testData = scaledData.filter(scaledData("index") < cuts(cutIndex+1) && scaledData("index") >= cuts(cutIndex))
-      val trainData = scaledData.filter(scaledData("index") >= cuts(cutIndex+1) || scaledData("index") < cuts(cutIndex))
+      val testData = scaledData.filter(scaledData("index") < cuts(cutIndex+1) && scaledData("index") >= cuts(cutIndex)).persist()
+      val trainData = scaledData.filter(scaledData("index") >= cuts(cutIndex+1) || scaledData("index") < cuts(cutIndex)).persist()
 
       println("train: " + trainData.count())
       println("test: " + testData.count())
@@ -1222,7 +1228,7 @@ object Classifier {
       /*************************************************************/
 
 
-      val minorityDFFold = minorityDF.filter(minorityDF("index") >= cuts(cutIndex+1) || minorityDF("index") < cuts(cutIndex))
+      val minorityDFFold = minorityDF.filter(minorityDF("index") >= cuts(cutIndex+1) || minorityDF("index") < cuts(cutIndex)).persist()
 
       /*************************************************************/
 
@@ -1256,7 +1262,9 @@ object Classifier {
           writer.write(runSparkNN(minorityDFFold, testData, method, minorityTypes))
         }
         writer.close()
-
+        trainData.unpersist()
+        testData.unpersist()
+        minorityDFFold.unpersist()
     }
 
     val t1 = System.nanoTime()
