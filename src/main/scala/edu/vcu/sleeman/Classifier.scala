@@ -530,7 +530,7 @@ object Classifier {
 
     val overSampleCount = maxClassCount
     val underSampleCount = minClassCount
-    val smoteSampleCount = maxClassCount// / 2
+    val smoteSampleCount = maxClassCount / 2
     var dfs: Array[DataFrame] = Array[DataFrame]()
 
     for (l <- presentClasses) {
@@ -732,14 +732,18 @@ object Classifier {
         val clusterResults: Map[Int, DataFrame] = presentClasses.map(x=>getClassClusters(trainData.sparkSession, x, trainData, clusterKValue)).toMap
 
 
-        var samples: Seq[(Int, Int, Int, Int, DenseVector)] = Seq()
-        var isValid = true
+
         //val cutoff = 0.0
 
         for(currentMinorityTypes<-minorityTypes) {
-          for(cutoff<-cutoffs) {
 
+          val t0 = System.nanoTime()
+          var samples: Seq[(Int, Int, Int, Int, DenseVector)] = Seq()
+
+          for(cutoff<-cutoffs) {
+            var isValid = true
             for (classIndex <- clusterResults) {
+
 
 
               var currentClassCount = 0
@@ -881,6 +885,13 @@ object Classifier {
             // }
             println("Final count: " + combinedDf.count())
           }
+
+          val t1 = System.nanoTime()
+          print("---------------- Minorty Type: ")
+          currentMinorityTypes.foreach(println)
+          println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
+          println("----------------")
+
         } // End of minority type loop
 
       }
@@ -1010,7 +1021,7 @@ object Classifier {
       val model2 = kmeans.fit(convertedDF)
       // Make predictions
       println("^^^^^^ cluster count: " + model2.clusterCenters.length)
-      val predictions = model2.transform(convertedDF).select("prediction", "index", "label", "minorityType", "features")//.cache() //FIXME - chech cache
+      val predictions = model2.transform(convertedDF).select("prediction", "index", "label", "minorityType", "features").persist()  //.cache() //FIXME - chech cache
       (l, predictions)
     }
     result
@@ -1085,7 +1096,7 @@ object Classifier {
     var minorityTypes = Array[Array[Int]]()
 
     //for(i<-0 to 0) {
-     for(i<-0 to 3) {
+     for(i<-0 to 7) {
        var currentMinorityTypes = Array[Int]()
        if (0 != (i & 1)) false else {
          currentMinorityTypes = currentMinorityTypes :+ 0
@@ -1161,9 +1172,10 @@ object Classifier {
     //for(cutIndex<-0 to cuts.length-2) {
 
     /***********************************/
-
+    println("xxxx " + rw(0) + " " + rw(1))
     val minorityDF =
       if(rw(0) == "read") {
+        println("READ KNN");
         val readData = df.sparkSession.read.
           option("inferSchema", true).
           option("header", true).
@@ -1174,6 +1186,7 @@ object Classifier {
         readData.withColumn("features", stringToArray(col("features")))
       }
       else {
+        println("CALCULATE KNN");
         val leafSize = 5
         val knn = new KNN()
           .setTopTreeSize(scaledData.count().toInt / 10)
