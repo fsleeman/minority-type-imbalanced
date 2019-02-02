@@ -29,8 +29,10 @@ import scala.util.{Failure, Random, Success, Try}
 //FIXME - turn classes back to Ints instead of Doubles
 object Classifier {
 
-  val clusterKValues: Array[Int] = Array(2, 10, 25,  50)
-  val cutoffs: Array[Double] = Array(0.0, 0.05, 0.1, 0.2)
+  var resultIndex = 0
+
+  val clusterKValues: Array[Int] = Array(2, 5, 10, 25, 50)
+  val cutoffs: Array[Double] = Array(0.0)//, 0.05, 0.1, 0.2)
   var results = ""
 
   var resultArray: Array[Array[String]] = Array()
@@ -251,7 +253,7 @@ object Classifier {
     val features = reverseRow.tail.map(_.toString.toFloat)
     (cls, features)
   }
-
+/*
   def calculateMinorityClasses(spark: SparkSession, trainData: DataFrame) {
       val trainRDD = trainData.rdd.map(_.toSeq.toArray).map(x => mapRow(x))
     //trainRDD.count()
@@ -286,6 +288,7 @@ object Classifier {
       //printMinorityClassResults(cls, res(0)(1).toString, minorityDataCollected.map(x => (x._2, x._3)))
     }*/
   }
+*/
 
   def convertIndexedToName(cls: Int, indexedLabelNames: DataFrame): String = {
     val rows: Array[Row] = indexedLabelNames.collect
@@ -615,9 +618,9 @@ object Classifier {
   def sampleDataParallel(spark: SparkSession, df: DataFrame, presentClass: Int, samplingMethod: String, underSampleCount: Int, overSampleCount: Int, smoteSampleCount: Int): DataFrame = {
       val l = presentClass
       println("----------> Class: " + presentClass)
-      println(df.count())
+      //println(df.count())
       val currentCase = df.filter(df("label") === l).toDF()
-      println("count: " + currentCase.count())
+      //println("count: " + currentCase.count())
       val filteredDF2 = samplingMethod match {
         case "undersample" => underSample(spark, currentCase, underSampleCount)
         case "oversample" => overSample(spark, currentCase, overSampleCount)
@@ -649,7 +652,7 @@ object Classifier {
     val overSampleCount = maxClassCount
     val underSampleCount = minClassCount
     val smoteSampleCount = maxClassCount / 2
-    var dfs: Array[DataFrame] = Array[DataFrame]()
+    //var dfs: Array[DataFrame] = Array[DataFrame]()
 
     /*for (l <- presentClasses) {
       println("----------> Class: " + l)
@@ -670,7 +673,7 @@ object Classifier {
 
     val all = dfs.reduce(_ union  _)
     println("^^^^^^^^^^^^")*/
-    df.show()
+    //df.show()
 
     val myDFs = presentClasses.map(x=>(x, df.filter(df("label") === x).toDF()))
 
@@ -728,7 +731,7 @@ object Classifier {
         case "smotePlus" => smotePlus(spark, currentCase, smoteSampleCount, clusterResults(l), l ,clusterKValue)
         case _ => currentCase
       }
-      println("updated: " + filteredDF2.count())
+      //println("updated: " + filteredDF2.count())
       dfs = dfs :+ filteredDF2
     }
 
@@ -859,8 +862,7 @@ object Classifier {
   }*/
   def runSparkNN(trainData: DataFrame, testData: DataFrame, samplingMethod: String, minorityTypes: Array[Array[Int]]): Array[Array[String]] ={//String = {
     println("AT RUN SPARK NN")
-    trainData.show()
-
+    //trainData.show()
     var currentResults = ""
     var resultArray = Array[Array[String]]()
 
@@ -955,7 +957,7 @@ object Classifier {
                   println(currentClusterData.head)
                   //FIXME - probably don't need to check the index, should be determined by current loop
                   val values = currentClusterData.filter(x => x._1 == currentClusterIndex && (currentMinorityTypes contains x._4)).map(x => (x._1, x._2, x._3, x._4, x._5))
-                  println("values size: " + currentClusterData.count(x => x._1 == currentClusterIndex && (currentMinorityTypes contains x._4)))//filter(x => x._1 == clusterIndex && (currentMinorityTypes contains x._4)).size)
+                  //println("values size: " + currentClusterData.count(x => x._1 == currentClusterIndex && (currentMinorityTypes contains x._4)))//filter(x => x._1 == clusterIndex && (currentMinorityTypes contains x._4)).size)
                   currentClassCount += values.size
                   samples = samples.union(values)
                 }
@@ -987,8 +989,8 @@ object Classifier {
                 .withColumnRenamed("_4", "minorityType")
                 .withColumnRenamed("_5", "features").sort(col("index"))
 
-              println("Picked samples count: " + pickedTypes.count())
-              pickedTypes.show()
+              //println("Picked samples count: " + pickedTypes.count())
+              //pickedTypes.show()
               //assert(false)
               //FIXME - avoid passing spark as parameter?
               //val combinedDf = sampleData(spark, pickedTypes, "smote")
@@ -1021,14 +1023,15 @@ object Classifier {
               case Success(x) =>
                 currentResults += samplingMethod + "," + currentTypesString + "" + clusterKValue + "," + cutoff + ","
                 //Array(samplingMethod, currentTypesString , clusterKValue, cutoff) ++
-                currentArray = samplingMethod +: currentTypesString +: clusterKValue.toString +: cutoff.toString +: runClassifierMinorityType(combinedDf, testData)
+                currentArray = resultIndex.toString +: samplingMethod +: currentTypesString +: clusterKValue.toString +: cutoff.toString +: runClassifierMinorityType(combinedDf, testData)
                 resultArray = resultArray :+ currentArray
                 //currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
                 currentResults += runClassifierMinorityType(combinedDf, testData) + "\n"
-              case Failure(e) => currentResults += samplingMethod + "," + currentTypesString + "\n"
+              case Failure(e) => currentResults += "," + samplingMethod + "," + currentTypesString + "\n"
             }
+            resultIndex += 1
             // }
-            println("Final count: " + combinedDf.count())
+            //println("Final count: " + combinedDf.count())
           }
 
           val t1 = System.nanoTime()
@@ -1063,12 +1066,13 @@ object Classifier {
           case Success(x) =>
             currentResults += samplingMethod + "," + currentTypesString + ",,,"
             //Array(samplingMethod, currentTypesString , "", 0) ++
-              currentArray = samplingMethod +: currentTypesString +: "" +: "" +: runClassifierMinorityType(trainDataResampled, testData)
+              currentArray = resultIndex.toString +: samplingMethod +: currentTypesString +: "" +: "" +: runClassifierMinorityType(trainDataResampled, testData)
             resultArray = resultArray :+ currentArray
             //currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
             currentResults += runClassifierMinorityType(trainDataResampled, testData) + "\n"
-          case Failure(e) => currentResults += samplingMethod + "," + currentTypesString + "\n"
+          case Failure(e) => currentResults += "," + samplingMethod + "," + currentTypesString + "\n"
         }
+        resultIndex += 1
       }
     }
 
@@ -1240,23 +1244,24 @@ object Classifier {
     for(i<- 9 until args.length) {
       samplingMethods += args(i)
     }
+    println("sampling methods:")
     samplingMethods.foreach(println)
 
-    val df1 = spark.read.
+    val df = spark.read.
       option("inferSchema", true).
       option("header", useHeader).
-      csv(input_file)
+      csv(input_file).persist()
 
-    val df = df1//.repartition(8)
+    //val df = df1//.repartition(8)
     val preppedDataUpdated1 = df.withColumnRenamed(labelColumnName, "label")
 
     def func(column: Column) = column.cast(DoubleType)
 
-    val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
+    //val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
     var minorityTypes = Array[Array[Int]]()
 
     //for(i<-0 to 0) {
-     for(i<-0 to 1) {
+     for(i<-0 to 14) {
        var currentMinorityTypes = Array[Int]()
        if (0 != (i & 1)) false else {
          currentMinorityTypes = currentMinorityTypes :+ 0
@@ -1280,7 +1285,7 @@ object Classifier {
 
     val enableDataScaling = true
 
-    val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) })//.cache()
+    val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
 
     val data = train_index.map({ r =>
       val array = r._2.toSeq.toArray.reverse
@@ -1306,7 +1311,9 @@ object Classifier {
       scaledData.drop("features").withColumnRenamed("scaledFeatures", "features")
     } else { converted }.cache()
 
-    val numSplits = 1
+    df.sparkSession.sparkContext.broadcast(scaledData)
+
+    val numSplits = 5
     val counts = scaledData.count()
     var cuts = Array[Int]()
 
@@ -1347,10 +1354,10 @@ object Classifier {
         readData.withColumn("features", stringToArray(col("features")))
       }
       else {
-        println("CALCULATE KNN");
+        println("CALCULATE KNN")
         val leafSize = 5
         val knn = new KNN()
-          .setTopTreeSize(scaledData.count().toInt / 10)
+          .setTopTreeSize(counts.toInt / 10)
           .setTopTreeLeafSize(leafSize)
           .setSubTreeLeafSize(leafSize)
           .setSeed(42L)
@@ -1377,23 +1384,27 @@ object Classifier {
             option("header", "true").
             mode("overwrite").
             save(rw(1))
+          val t1 = System.nanoTime()
+          println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
         }
         println("------------ Minority DF")
-        minorityDF.show()
+        //minorityDF.show()
+        return
         minorityDF
+
       }.persist()
 
     /***********************************/
 
     for(cutIndex<-0 until numSplits) {
       //println(cuts(cutIndex) + " " + (cuts(cutIndex+1)))
-
+      resultIndex = 0
 
       val testData = scaledData.filter(scaledData("index") < cuts(cutIndex+1) && scaledData("index") >= cuts(cutIndex)).persist()
       val trainData = scaledData.filter(scaledData("index") >= cuts(cutIndex+1) || scaledData("index") < cuts(cutIndex)).persist()
 
-      println("train: " + trainData.count())
-      println("test: " + testData.count())
+      //println("train: " + trainData.count())
+      //println("test: " + testData.count())
 
       //val Array(trainData, testData) = scaledData.randomSplit(Array(0.8, 0.2),42L)
       //println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
@@ -1424,10 +1435,10 @@ object Classifier {
       }
 
       //val writer = new PrintWriter(new File(savePathString + "/" + fileDescription + "_k" + clusterCount.toString + "_" + cutIndex.toString + ".csv"))
-      println(savePathString + "/" + fileDescription + "_k" + "_" + cutIndex.toString + ".csv")
+      //println(savePathString + "/" + fileDescription + "_k" + "_" + cutIndex.toString + ".csv")
 
-      val writer = new PrintWriter(new File(savePathString + "/" + fileDescription + "_k" + "_" + cutIndex.toString + ".csv"))
-
+      //val writer = new PrintWriter(new File(savePathString + "/" + fileDescription + "_k" + "_" + cutIndex.toString + ".csv"))
+        resultArray = Array()
         //writer.write("sampling,minorityTypes,clusters,cutoff,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb,CBA\n")
         for (method <- samplingMethods) {
           //println("method: " + method)
@@ -1439,6 +1450,8 @@ object Classifier {
 
           resultArray = resultArray ++ result
 
+
+          //resultIndex += 1
           //resultArray = Array("sampling,minorityTypes,clusters,cutoff")
           //resultArray = resultArray :+ result
 
@@ -1447,9 +1460,58 @@ object Classifier {
          // writer.flush()
         }
         //writer.close()
+
+
+      val csvResults = resultArray.map(x=> x match { case Array(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) =>(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14)}).toSeq
+
+
+      //val gg: Seq[(String, String, String, String, String, String, String, String, String, String, String, String, String, String)] = Seq(("None","[0 1 2 3]","","","0.547","0.0","0.044919786096256686","NaN","0.22459893048128343","0.28","0.0","0.26683608640406614","0.11699164345403901","0.044919786096256686"),
+      //  ("None","[1 2 3]","","","0.545","0.0","0.0378698224852071","NaN","0.1893491124260355","0.21333333333333335","0.0","0.20806241872561768","0.093841642228739","0.0378698224852071"))
+
+      //val d=df.sparkSession.sparkContext.parallelize(Seq(("None","[0 1 2 3]","","","0.547","0.0","0.044919786096256686","NaN","0.22459893048128343","0.28","0.0","0.26683608640406614","0.11699164345403901","0.044919786096256686"),
+      //("None","[1 2 3]","","","0.545","0.0","0.0378698224852071","NaN","0.1893491124260355","0.21333333333333335","0.0","0.20806241872561768","0.093841642228739","0.0378698224852071"))).toDF
+      //d.show()
+
+
+      val c = df.sparkSession.sparkContext.parallelize(csvResults).toDF
+      val lookup = Map(
+        "_1" -> "index",
+        "_2" -> "sampling",
+        "_3" -> "minorityTypes",
+        "_4" -> "clusters",
+        "_5" -> "cutoff",
+        "_6" -> "AvAvg",
+        "_7" -> "MAvG",
+        "_8" -> "RecM",
+        "_9" -> "Recu",
+        "_10" -> "PrecM",
+        "_11" -> "Precu",
+        "_12" -> "FbM",
+        "_13" -> "Fbu",
+        "_14" -> "AvFb",
+        "_15" -> "CBA"
+      )
+
+      val cols = c.columns.map(name => lookup.get(name) match {
+        case Some(newname) => col(name).as(newname)
+        case None => col(name)
+      })
+
+      val resultsDF = c.select(cols: _*)
+
+      resultsDF.repartition(1).
+        write.format("com.databricks.spark.csv").
+        option("header", "true").
+        mode("overwrite").
+        save(savePath + "/" + fileDescription + "/" + cutIndex)
+
+        println(savePath + "/" + fileDescription + "/" + cutIndex)
         trainData.unpersist()
         testData.unpersist()
         minorityDFFold.unpersist()
+
+      val t1 = System.nanoTime()
+      println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
     }
 
     //println("length: " + resultArray.length)
@@ -1466,49 +1528,9 @@ object Classifier {
       println("\n")
     }*/
 
-    val csvResults: Seq[(String, String, String, String, String, String, String, String, String, String, String, String, String, String)] = resultArray.map(x=> x match { case Array(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) =>(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13)}).toSeq
 
 
-    //val gg: Seq[(String, String, String, String, String, String, String, String, String, String, String, String, String, String)] = Seq(("None","[0 1 2 3]","","","0.547","0.0","0.044919786096256686","NaN","0.22459893048128343","0.28","0.0","0.26683608640406614","0.11699164345403901","0.044919786096256686"),
-    //  ("None","[1 2 3]","","","0.545","0.0","0.0378698224852071","NaN","0.1893491124260355","0.21333333333333335","0.0","0.20806241872561768","0.093841642228739","0.0378698224852071"))
 
-    //val d=df.sparkSession.sparkContext.parallelize(Seq(("None","[0 1 2 3]","","","0.547","0.0","0.044919786096256686","NaN","0.22459893048128343","0.28","0.0","0.26683608640406614","0.11699164345403901","0.044919786096256686"),
-    //("None","[1 2 3]","","","0.545","0.0","0.0378698224852071","NaN","0.1893491124260355","0.21333333333333335","0.0","0.20806241872561768","0.093841642228739","0.0378698224852071"))).toDF
-    //d.show()
-
-
-    val c = df.sparkSession.sparkContext.parallelize(csvResults).toDF
-    val lookup = Map(
-      "_1" -> "sampling",
-      "_2" -> "minorityTypes",
-      "_3" -> "clusters",
-      "_4" -> "cutoff",
-      "_5" -> "AvAvg",
-      "_6" -> "MAvG",
-      "_7" -> "RecM",
-      "_8" -> "Recu",
-      "_9" -> "PrecM",
-      "_10" -> "Precu",
-      "_11" -> "FbM",
-      "_12" -> "Fbu",
-      "_13" -> "AvFb",
-      "_14" -> "CBA"
-    )
-
-    val cols = c.columns.map(name => lookup.get(name) match {
-      case Some(newname) => col(name).as(newname)
-      case None => col(name)
-    })
-
-    val resultsDF = c.select(cols: _*)
-
-    resultsDF.show()
-
-    resultsDF.repartition(1).
-      write.format("com.databricks.spark.csv").
-      option("header", "true").
-      mode("overwrite").
-      save(savePath + "/" + fileDescription)
 /*
     val xxx = c.withColumnRenamed("_1", "sampling").withColumnRenamed("_2", "minorityTypes").withColumnRenamed("_3", "clusters")
 
@@ -1618,7 +1640,6 @@ object Classifier {
     //x.show()
 
 
-    val t1 = System.nanoTime()
-    println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
+
   }
 }
