@@ -13,6 +13,7 @@ import org.apache.spark.sql.DataFrame
 import java.io.PrintWriter
 import java.io.File
 
+import edu.vcu.sleeman.Classifier.kValue
 import org.apache.log4j._
 
 import scala.collection.mutable
@@ -30,6 +31,7 @@ import scala.util.{Failure, Random, Success, Try}
 object Classifier {
 
   var resultIndex = 0
+  var kValue:Int = 0
 
   val clusterKValues: Array[Int] = Array(2, 5, 10, 25, 50)
   val cutoffs: Array[Double] = Array(0.0)//, 0.05, 0.1, 0.2)
@@ -164,10 +166,16 @@ object Classifier {
 
   // Map number of nearest same-class neighbors to minority class label
   def getMinorityClassLabel(kCount: Int): Int = {
-    if (kCount >= 4) { 0 }
+
+    if (kCount / kValue.toFloat >= 0.8) { 0 }
+    else if ( kCount / kValue.toFloat >= 0.4) { 1 }
+    else if ( kCount / kValue.toFloat >= 0.2) { 2 }
+    else { 3 }
+
+    /*if (kCount >= 4) { 0 }
     else if (kCount >= 2) { 1}
     else if (kCount == 1) { 2 }
-    else { 3 }
+    else { 3 }*/
   }
 
   def setMinorityStatus(cls: Int, sample: (Int, Array[Int])): (Int, Int) = {
@@ -675,7 +683,7 @@ object Classifier {
     println("^^^^^^^^^^^^")*/
     //df.show()
 
-    val myDFs = presentClasses.map(x=>(x, df.filter(df("label") === x).toDF()))
+    val myDFs: Array[(Int, DataFrame)] = presentClasses.map(x=>(x, df.filter(df("label") === x).toDF()))
 
     //val classDF: RDD[DataFrame] = spark.sparkContext.parallelize(presentClasses).map(x => sampleDataParallel(spark, df.filter(df("label") === x).toDF(), x, samplingMethod, underSampleCount, overSampleCount, smoteSampleCount))
     val classDF: Array[DataFrame] = presentClasses.map(x => sampleDataParallel(spark, myDFs.filter(y=>y._1 == x)(0)._2, x, samplingMethod, underSampleCount, overSampleCount, smoteSampleCount))
@@ -771,7 +779,7 @@ object Classifier {
     val model = classifier.fit(train)
     val predictions = model.transform(test)
 
-    val confusionMatrix = predictions.
+    val confusionMatrix: Dataset[Row] = predictions.
       groupBy("label").
       pivot("prediction", minLabel to maxLabel).
       count().
@@ -1215,7 +1223,7 @@ object Classifier {
     val input_file = args(0)
     val labelColumnName = args(1)
 
-    val mode = args(2)
+    kValue = args(2).toInt
     val useHeader = if (args.length > 3 && args(3).equals("yes")) true else false
 
     val savePath = args(4)
@@ -1287,7 +1295,7 @@ object Classifier {
 
     val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
 
-    val data = train_index.map({ r =>
+    val data: RDD[(Long, Int, Array[Double])] = train_index.map({ r =>
       val array = r._2.toSeq.toArray.reverse
       val cls = array.head.toString.toDouble.toInt
       val rowMapped: Array[Double] = array.tail.map(_.toString.toDouble)
@@ -1359,10 +1367,10 @@ object Classifier {
         val knn = new KNN()
           .setTopTreeSize(counts.toInt / 10)
           .setTopTreeLeafSize(leafSize)
-          .setSubTreeLeafSize(leafSize)
+          .setSubTreeLeafSize(2500)
           .setSeed(42L)
           .setAuxCols(Array("label", "features"))
-        val model = knn.fit(scaledData).setK(6)//.setDistanceCol("distances")
+        val model = knn.fit(scaledData).setK(kValue+1)//.setDistanceCol("distances")
         val results2: DataFrame = model.transform(scaledData)
 
         val collected: Array[Row] = results2.select( "neighbors", "index", "features").collect()
