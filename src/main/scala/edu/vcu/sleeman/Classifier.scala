@@ -25,6 +25,8 @@ import org.apache.spark.rdd.RDD
 
 import scala.collection.parallel.immutable.ParSeq
 import scala.util.{Failure, Random, Success, Try}
+import org.apache.spark.sql.functions._
+import org.apache.spark.storage.StorageLevel
 
 
 //FIXME - turn classes back to Ints instead of Doubles
@@ -1179,6 +1181,40 @@ object Classifier {
   }
 
 
+  def getSparkNNMinorityResultX(x: mutable.WrappedArray[Any], index: Int, features: Any): (Int, Int, Int, mutable.WrappedArray[Int]) = {
+    val wrappedArray = x
+
+    val nearestLabels = Array[Int]()
+    def getLabel(neighbor: Any): Int = {
+      val index = neighbor.toString.indexOf(",")
+      neighbor.toString.substring(1, index).toInt
+    }
+
+    def getLabelMatch(label: Int, neighbor: Any): Int = {
+      val index = neighbor.toString.indexOf(",")
+      val nn = neighbor.toString.substring(1, index).toInt
+      if(label == nn) {
+        1
+      }
+      else {
+        0
+      }
+    }
+
+    val currentLabel = getLabel(wrappedArray(0))
+    var currentCount = 0
+    for(i<-1 until wrappedArray.length) {
+      nearestLabels :+ getLabel(wrappedArray(i))
+      if (getLabel(wrappedArray(i)) == currentLabel) {
+        currentCount += 1
+      }
+    }
+    val currentArray = features.toString.substring(1, features.toString.length-1).split(",").map(x=>x.toDouble)
+    var foo = (index, currentLabel, getMinorityClassLabel(currentCount), wrappedArray.map(x=>getLabelMatch(currentLabel,x)))
+
+    (index, currentLabel, getMinorityClassLabel(currentCount), wrappedArray.map(x=>getLabelMatch(currentLabel,x)))//features.toString().asInstanceOf[mutable.WrappedArray[Double]])
+  }
+
   def getClassClusters(spark: SparkSession, l: Int, df: DataFrame, clusterKValue: Int): (Int, DataFrame) = {
     //spark.sqlContext.emptyDataFrame
     val result = if(clusterKValue < 2) {
@@ -1193,7 +1229,7 @@ object Classifier {
       val model2 = kmeans.fit(convertedDF)
       // Make predictions
       println("^^^^^^ cluster count: " + model2.clusterCenters.length)
-      val predictions = model2.transform(convertedDF).select("prediction", "index", "label", "minorityType", "features").persist()  //.cache() //FIXME - chech cache
+      val predictions = model2.transform(convertedDF).select("prediction", "index", "label", "minorityType", "features").persist(StorageLevel.MEMORY_ONLY_SER) //.cache() //FIXME - chech cache
       (l, predictions)
     }
     result
@@ -1258,12 +1294,12 @@ object Classifier {
     val df = spark.read.
       option("inferSchema", true).
       option("header", useHeader).
-      csv(input_file).persist()
+      csv(input_file).persist(StorageLevel.MEMORY_ONLY_SER)
 
     //val df = df1//.repartition(8)
     val preppedDataUpdated1 = df.withColumnRenamed(labelColumnName, "label")
 
-    def func(column: Column) = column.cast(DoubleType)
+    //def func(column: Column) = column.cast(DoubleType)
 
     //val preppedDataUpdated = preppedDataUpdated1.select(preppedDataUpdated1.columns.map(name => func(col(name))): _*)
     var minorityTypes = Array[Array[Int]]()
@@ -1293,7 +1329,7 @@ object Classifier {
 
     val enableDataScaling = true
 
-    val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).cache()
+    val train_index = df.rdd.zipWithIndex().map({ case (x, y) => (y, x) }).persist(StorageLevel.MEMORY_ONLY_SER)
 
     val data: RDD[(Long, Int, Array[Double])] = train_index.map({ r =>
       val array = r._2.toSeq.toArray.reverse
@@ -1317,7 +1353,7 @@ object Classifier {
       val scalerModel = scaler.fit(converted)
       val scaledData: DataFrame = scalerModel.transform(converted)
       scaledData.drop("features").withColumnRenamed("scaledFeatures", "features")
-    } else { converted }.cache()
+    } else { converted }.persist(StorageLevel.MEMORY_ONLY_SER)
 
     df.sparkSession.sparkContext.broadcast(scaledData)
 
@@ -1372,8 +1408,11 @@ object Classifier {
           .setAuxCols(Array("label", "features"))
         val model = knn.fit(scaledData).setK(kValue+1)//.setDistanceCol("distances")
         val results2: DataFrame = model.transform(scaledData)
-
+        results2.show()
         val collected: Array[Row] = results2.select( "neighbors", "index", "features").collect()
+        // [5,[0.4884189325..
+        //val minorityValueDFX: Array[(Int, Int, Int, mutable.WrappedArray[Int], mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResultX(x._1, x._2.toString.toInt, x._3))
+        //val minorityValueDFX = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResultX(x._1, x._2.toString.toInt, x._3))
         val minorityValueDF: Array[(Int, Int, Int, mutable.WrappedArray[Double])] = collected.map(x=>(x(0).asInstanceOf[mutable.WrappedArray[Any]],x(1),x(2))).map(x=>getSparkNNMinorityResult(x._1, x._2.toString.toInt, x._3))
 
         val minorityDF = scaledData.sparkSession.sparkContext.parallelize(minorityValueDF).toDF()
@@ -1381,7 +1420,37 @@ object Classifier {
           .withColumnRenamed("_2","label")
           .withColumnRenamed("_3","minorityType")
           .withColumnRenamed("_4","features").sort("index")
-        //printSparkNNMinorityReport(minorityDF)
+
+        minorityDF.show()
+
+
+        /*val minorityDFX: Dataset[Row] = scaledData.sparkSession.sparkContext.parallelize(minorityValueDFX).toDF()
+          .withColumnRenamed("_1","index")
+          .withColumnRenamed("_2","label")
+          .withColumnRenamed("_3","minorityType")
+          .withColumnRenamed("_4","neighbors")
+          .sort("index")
+*/
+
+        val nElements = kValue + 1
+        //val updated = minorityDFX.select("label", "neighbors").filter(col("label")===5).select(($"index" +: $"label" +: $"minorityType"+: Range(0, nElements).map(idx => $"neighbors"(idx) as "k" + (idx)):_*))
+        //val updated = minorityDFX.select("label", "neighbors").select(($"label" +: Range(0, nElements).map(idx => $"neighbors"(idx) as "k" + (idx)):_*))  //.filter(col("label")===5)
+
+        //updated.groupBy("label").mean("k1", "k2").show()
+        //updated.groupBy("label").mean(Range(0, nElements).map(idx => $"neighbors"(idx) as "k" + (idx)):_*).show()
+        //val xxxx = updated.groupBy($"label").mean()
+        //xxxx.show()
+        //updated.groupBy("label").map(x=>x)
+
+//        updated.select(updated.columns.map(mean(_)): _*).show()
+        //updated.select(avg($"k1")).show()
+         //updated.show()
+
+        /** reduce  **/
+
+        //val xx = minorityDFX.groupBy("label", "minorityType")
+        //xx.count().show()
+
 
         if (rw(0) == "write") {
           val stringify = udf((vs: Seq[String]) => s"""[${vs.mkString(",")}]""")
@@ -1396,27 +1465,18 @@ object Classifier {
           println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
         }
         println("------------ Minority DF")
-        //minorityDF.show()
-        return
+
         minorityDF
 
-      }.persist()
-
+      }.persist(StorageLevel.MEMORY_ONLY_SER)
+      return
     /***********************************/
 
     for(cutIndex<-0 until numSplits) {
-      //println(cuts(cutIndex) + " " + (cuts(cutIndex+1)))
       resultIndex = 0
 
       val testData = scaledData.filter(scaledData("index") < cuts(cutIndex+1) && scaledData("index") >= cuts(cutIndex)).persist()
       val trainData = scaledData.filter(scaledData("index") >= cuts(cutIndex+1) || scaledData("index") < cuts(cutIndex)).persist()
-
-      //println("train: " + trainData.count())
-      //println("test: " + testData.count())
-
-      //val Array(trainData, testData) = scaledData.randomSplit(Array(0.8, 0.2),42L)
-      //println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1")
-      //trainData.printSchema()
 
       /*************************************************************/
 
@@ -1425,62 +1485,19 @@ object Classifier {
 
       /*************************************************************/
 
-
-      //val samplingMethods = Array("none")//, "smotePlus")
-
-      //val d = trainData.select("label").distinct()
-      //val presentClasses = d.select("label").rdd.map(r => r(0)).collect().map(x=>x.toString().toInt)
-
-
-      //val clusterResults: Map[Int, DataFrame] = presentClasses.map(x=>getClassClusters(spark, x, minorityDFFold)).toMap
-     // val clusterResults: Map[Int, DataFrame] = presentClasses.map(x=>getClassClusters(spark, x, trainData)).toMap
-
-
       val savePathString = savePath + "/" + fileDescription + "/k" // + clusterCount.toString
       val saveDirectory = new File(savePathString)
       if(!saveDirectory.exists()) {
         saveDirectory.mkdirs()
       }
 
-      //val writer = new PrintWriter(new File(savePathString + "/" + fileDescription + "_k" + clusterCount.toString + "_" + cutIndex.toString + ".csv"))
-      //println(savePathString + "/" + fileDescription + "_k" + "_" + cutIndex.toString + ".csv")
-
-      //val writer = new PrintWriter(new File(savePathString + "/" + fileDescription + "_k" + "_" + cutIndex.toString + ".csv"))
         resultArray = Array()
-        //writer.write("sampling,minorityTypes,clusters,cutoff,AvAvg,MAvG,RecM,PrecM,Recu,Precu,FbM,Fbu,AvFb,CBA\n")
         for (method <- samplingMethods) {
-          //println("method: " + method)
-
           val result: Array[Array[String]] = runSparkNN(minorityDFFold, testData, method, minorityTypes)
-          //result.foreach(println)
-          //resultArray = resultArray :+ Row.fromSeq(result)
-
-
           resultArray = resultArray ++ result
-
-
-          //resultIndex += 1
-          //resultArray = Array("sampling,minorityTypes,clusters,cutoff")
-          //resultArray = resultArray :+ result
-
-          //writer.write(runSparkNN(preppedDataUpdated, method, minorityTypes, true))
-          //writer.write(runSparkNN(minorityDFFold, testData, method, minorityTypes))
-         // writer.flush()
         }
-        //writer.close()
-
 
       val csvResults = resultArray.map(x=> x match { case Array(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14) =>(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14)}).toSeq
-
-
-      //val gg: Seq[(String, String, String, String, String, String, String, String, String, String, String, String, String, String)] = Seq(("None","[0 1 2 3]","","","0.547","0.0","0.044919786096256686","NaN","0.22459893048128343","0.28","0.0","0.26683608640406614","0.11699164345403901","0.044919786096256686"),
-      //  ("None","[1 2 3]","","","0.545","0.0","0.0378698224852071","NaN","0.1893491124260355","0.21333333333333335","0.0","0.20806241872561768","0.093841642228739","0.0378698224852071"))
-
-      //val d=df.sparkSession.sparkContext.parallelize(Seq(("None","[0 1 2 3]","","","0.547","0.0","0.044919786096256686","NaN","0.22459893048128343","0.28","0.0","0.26683608640406614","0.11699164345403901","0.044919786096256686"),
-      //("None","[1 2 3]","","","0.545","0.0","0.0378698224852071","NaN","0.1893491124260355","0.21333333333333335","0.0","0.20806241872561768","0.093841642228739","0.0378698224852071"))).toDF
-      //d.show()
-
-
       val c = df.sparkSession.sparkContext.parallelize(csvResults).toDF
       val lookup = Map(
         "_1" -> "index",
@@ -1521,133 +1538,5 @@ object Classifier {
       val t1 = System.nanoTime()
       println("Elapsed time: " + (t1 - t0) / 1e9 + "s")
     }
-
-    //println("length: " + resultArray.length)
-
-
-
-
-    /*for(i<-resultArray) {
-
-      def toTuple5 = i match { case Array(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13) => (a0, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13)}
-      for(j<-i) {
-        print(j + ",")
-      }
-      println("\n")
-    }*/
-
-
-
-
-/*
-    val xxx = c.withColumnRenamed("_1", "sampling").withColumnRenamed("_2", "minorityTypes").withColumnRenamed("_3", "clusters")
-
-      xxx.show()
-
-    c.repartition(1).
-      write.format("com.databricks.spark.csv").
-      option("header", "true").
-      mode("overwrite").
-      save("/tmp/foo")
-
-*/
-    /*val x: RDD[Row] = df.sparkSession.sparkContext.parallelize(zz)
-
-
-    val rdd = df.sparkSession.sparkContext.parallelize(resultArray)
-    val xxxxxx = rdd.take(0).length
-    println(xxxxxx.toString)*/
-/*
-    rdd.collect().foreach(println)
-
-*/
-    /*
-
-    val df2 = df.sparkSession.sqlContext.createDataFrame(
-        rdd,
-      StructType(Seq(StructField("sampling", StringType),
-
-        StructField("minorityTypes", StringType, true),
-        StructField("clusters", StringType, true),
-        StructField("cutoff", StringType, true),
-
-        StructField("AvAvg", StringType, true),
-        StructField("MAvG", StringType, true),
-        StructField("RecM", StringType, true),
-        StructField("Recu", StringType, true),
-        StructField("PrecM", StringType, true),
-        StructField("Precu", StringType, true),
-        StructField("FbM", StringType, true),
-        StructField("Fbu", StringType, true),
-        StructField("AvFb", StringType, true),
-        StructField("CBA", StringType, true))
-
-        //StructType(Seq(StructField("arr", ArrayType(StringType, false), false)
-      ))
-    df2.show()
-
-    val stringify = udf((vs: Seq[String]) => s"""[${vs.mkString(",")}]""")
-
-    df2.
-      repartition(1).
-      write.format("com.databricks.spark.csv").
-      option("header", "true").
-      mode("overwrite").
-      save("/tmp/foo")
-
-    println(rdd)
-
-
-
-    val rdd2 = df.sparkSession.sparkContext.parallelize(
-      Seq(
-        Row.fromSeq(Array("x", 2.0, 1.0, 2.1, 5.4).toSeq),
-        Row.fromSeq(Array("y", 1.5, 0.5, 0.9, 3.7).toSeq),
-        Row.fromSeq(Array("z", 8.0, 2.9, 9.1, 2.5).toSeq)
-      )
-    )
-
-
-    val schema = new StructType()
-      .add(StructField("foo", StringType, true))
-      .add(StructField("id", DoubleType, true))
-      .add(StructField("val1", DoubleType, true))
-      .add(StructField("val2", DoubleType, true))
-
-    val dfWithoutSchema = df.sparkSession.createDataFrame(rdd2, schema)
-    dfWithoutSchema.show()
-*/
-
-    /*val schema = new StructType()
-      .add(StructField("sampling", StringType))
-      .add(StructField("sampling", StringType, true))
-      .add(StructField("minorityTypes", StringType, true))
-      .add(StructField("clusters", StringType, true))
-      .add(StructField("cutoff", StringType, true))
-
-      .add(StructField("AvAvg", StringType, true))
-      .add(StructField("MAvG", StringType, true))
-      .add(StructField("RecM", StringType, true))
-      .add(StructField("Recu", StringType, true))
-      .add(StructField("PrecM", StringType, true))
-      .add(StructField("Precu", StringType, true))
-      .add(StructField("FbM", StringType, true))
-      .add(StructField("Fbu", StringType, true))
-      .add(StructField("AvFb", StringType, true))
-      .add(StructField("CBA", StringType, true))
-*/
-    //val resultDF = spark.createDataFrame(x)
-    //resultDF.show()
-
-    //val xx = df.sparkSession.sparkContext.parallelize(resultArray.toSeq)
-    //df.sparkSession.createDataFrame(xx, schema).show()
-
-    //val dfWithSchema = df.sparkSession.createDataset(x).toDF("id", "vals")
-    //val y = df.sparkSession.createDataFrame(x)
-
-    //x.show()
-
-
-
   }
 }
