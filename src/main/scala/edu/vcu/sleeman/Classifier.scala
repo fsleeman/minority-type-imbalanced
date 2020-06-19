@@ -810,7 +810,7 @@ object Classifier {
     var minorityTypes = Array[Array[Int]]()
 
     //for(i<-0 to 0) {
-     for(i<-0 to 0) {
+     for(i<-0 to 14) {
        var currentMinorityTypes = Array[Int]()
        if (0 != (i & 1)) false else {
          currentMinorityTypes = currentMinorityTypes :+ 0
@@ -860,7 +860,7 @@ object Classifier {
 
     df.sparkSession.sparkContext.broadcast(scaledData)
 
-    val numSplits = 1
+    val numSplits = 5
     val counts = scaledData.count()
     var cuts = Array[Int]()
 
