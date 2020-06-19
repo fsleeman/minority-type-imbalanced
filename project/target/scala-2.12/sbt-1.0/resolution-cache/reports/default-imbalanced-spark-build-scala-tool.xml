@@ -9,7 +9,7 @@
 		extra-sbtVersion="1.0"
 		conf="scala-tool"
 		confs="compile, runtime, test, provided, optional, compile-internal, runtime-internal, test-internal, plugin, pom, scala-tool"
-		date="20180915172030"/>
+		date="20181226134957"/>
 	<dependencies>
 		<module organisation="org.scala-lang" name="scala-compiler">
 			<revision name="2.12.6" status="release" pubdate="20180427044227" resolver="sbt-chain" artresolver="sbt-chain" homepage="http://www.scala-lang.org/" downloaded="false" searched="false" default="false" conf="default, compile, runtime, optional, optional(default), master" position="0">
@@ -26,7 +26,7 @@
 		<module organisation="jline" name="jline">
 			<revision name="2.14.6" status="release" pubdate="20180326051840" resolver="sbt-chain" artresolver="sbt-chain" homepage="" downloaded="false" searched="false" default="false" conf="master(*), compile, compile(*), master" position="4">
 				<license name="The BSD License" url="http://www.opensource.org/licenses/bsd-license.php"/>
-				<metadata-artifact status="no" details="" size="5183" time="0" location="/home/ford/.ivy2/cache/jline/jline/ivy-2.14.6.xml" searched="false" origin-is-local="false" origin-location="https://repo1.maven.org/maven2/jline/jline/2.14.6/jline-2.14.6.pom"/>
+				<metadata-artifact status="no" details="" size="5033" time="0" location="/home/ford/.ivy2/cache/jline/jline/ivy-2.14.6.xml" searched="false" origin-is-local="false" origin-location="https://repo1.maven.org/maven2/jline/jline/2.14.6/jline-2.14.6.pom"/>
 				<caller organisation="org.scala-lang" name="scala-compiler" conf="optional" rev="2.14.6" rev-constraint-default="2.14.6" rev-constraint-dynamic="2.14.6" callerrev="2.12.6"/>
 				<artifacts>
 					<artifact name="jline" type="jar" ext="jar" status="no" details="" size="268780" time="0" location="/home/ford/.ivy2/cache/jline/jline/jars/jline-2.14.6.jar">
