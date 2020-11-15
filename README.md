@@ -37,5 +37,24 @@ Cancer type predictions were performed on data the SEER cancer registry. Using t
   
 ### Intel Sensors:  
 data/sensors.csv  
-The original source (http://db.csail.mit.edu/labdata/labdata.html) from the Intel Berkely Research Lab appears to be offline so the version of the data used has been saved in the data directory of this repository.  
+The original source (http://db.csail.mit.edu/labdata/labdata.html) from the Intel Berkely Research Lab appears to be offline so the version of the data used has been saved in the data directory of this repository. 
+
+## Related Publication
+Full results and a discussion of minority type instance difficulty can be found in our recently published paper:  
+Sleeman IV, William C., and Bartosz Krawczyk. "Multi-class imbalanced big data classification on Spark." Knowledge-Based Systems (2020): 106598.
+
+Please consider citing this work if it has been helpful in your research. BibTeX reference:
+```
+@article{sleeman2020multi,
+  title={Multi-class imbalanced big data classification on Spark},
+  author={Sleeman IV, William C and Krawczyk, Bartosz},
+  journal={Knowledge-Based Systems},
+  pages={106598},
+  year={2020},
+  publisher={Elsevier}
+}
+```
+
+
+
 
